@@ -1,5 +1,6 @@
 package com.example.dispatcher.controller;
 
+import com.example.dispatcher.service.UpdateProducer;
 import com.example.dispatcher.utils.MessageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -8,19 +9,22 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import static com.example.commonrabbitmq.RabbitQueue.*;
+
 @Component
 @Log4j
 @RequiredArgsConstructor
 public class UpdateController {
     private TelegramBot telegramBot;
     private final MessageUtils messageUtils;
+    private final UpdateProducer updateProducer;
 
     public void registerBot(TelegramBot telegramBot) {
         this.telegramBot = telegramBot;
     }
 
     public void processUpdate(Update update){
-        if(update != null){
+        if(update == null){
             log.error("Received update is null");
             return;
         }
@@ -37,11 +41,11 @@ public class UpdateController {
         Message message = update.getMessage();
 
         if(message.getText() != null){
-            processTextMessage(message);
+            processTextMessage(update);
         } else if(message.getDocument() != null){
-            processDocMessage(message);
+            processDocMessage(update);
         } else if(message.getPhoto() != null){
-            processPhotoMessage(message);
+            processPhotoMessage(update);
         } else {
             setUnsupportedMessageTypeView(update);
         }
@@ -54,16 +58,30 @@ public class UpdateController {
         setView(sendMessage);
     }
 
-    private void setView(SendMessage sendMessage) {
+    private void setFileIsReceivedView(Update update){
+        SendMessage sendMessage = messageUtils.generateSendMessageWithText(update,
+                "File received. Processing...");
+
+        setView(sendMessage);
+    }
+
+    public void setView(SendMessage sendMessage) {
         telegramBot.sendAnswerMessage(sendMessage);
     }
 
-    private void processPhotoMessage(Message message) {
+    public void processPhotoMessage(Update update) {
+        updateProducer.produce(PHOTO_MESSAGE_UPDATE, update);
+        setFileIsReceivedView(update);
     }
 
-    private void processDocMessage(Message message) {
+    public void processDocMessage(Update update) {
+        updateProducer.produce(DOC_MESSAGE_UPDATE, update);
+        setFileIsReceivedView(update);
     }
 
-    private void processTextMessage(Message message) {
+    public void processTextMessage(Update update) {
+        updateProducer.produce(TEXT_MESSAGE_UPDATE, update);
+        setFileIsReceivedView(update);
     }
+
 }
