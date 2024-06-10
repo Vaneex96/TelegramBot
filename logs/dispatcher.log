@@ -15,3 +15,34 @@
 2024-06-01 19:40:56 DEBUG UpdateProducerImpl:19 - 
 2024-06-03 16:58:52 DEBUG UpdateProducerImpl:19 - hello, mr. Bot!
 2024-06-03 17:13:15 DEBUG UpdateProducerImpl:19 - what's up
+2024-06-05 22:07:56 DEBUG UpdateProducerImpl:19 - hello, dude
+2024-06-06 20:00:23 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:00:24 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:00:25 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:00:47 DEBUG UpdateProducerImpl:19 - /help
+2024-06-06 20:00:56 DEBUG UpdateProducerImpl:19 - /registration
+2024-06-06 20:00:59 DEBUG UpdateProducerImpl:19 - /cancel
+2024-06-06 20:06:19 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:06:20 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:06:20 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:06:26 DEBUG UpdateProducerImpl:19 - /help
+2024-06-06 20:08:55 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:08:56 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:08:57 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:09:00 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:11:46 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:11:47 ERROR UpdateController:35 - Received unsupported message type
+2024-06-06 20:11:47 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:11:50 DEBUG UpdateProducerImpl:19 - /help
+2024-06-06 20:11:53 DEBUG UpdateProducerImpl:19 - /cancel
+2024-06-06 20:11:56 DEBUG UpdateProducerImpl:19 - /registration
+2024-06-06 20:11:59 DEBUG UpdateProducerImpl:19 - /start
+2024-06-06 20:12:37 DEBUG UpdateProducerImpl:19 - /some_command
+2024-06-06 20:13:07 DEBUG UpdateProducerImpl:19 - 
+2024-06-09 20:59:23 DEBUG UpdateProducerImpl:19 - 
+2024-06-09 21:03:58 DEBUG UpdateProducerImpl:19 - 
+2024-06-09 21:07:13 DEBUG UpdateProducerImpl:19 - 
+2024-06-09 22:25:14 DEBUG UpdateProducerImpl:19 - 
+2024-06-09 22:27:02 DEBUG UpdateProducerImpl:19 - 
+2024-06-10 12:18:55 DEBUG UpdateProducerImpl:19 - 
+2024-06-10 12:28:06 DEBUG UpdateProducerImpl:19 - 

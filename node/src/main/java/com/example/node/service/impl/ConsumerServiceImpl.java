@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import static com.example.commonrabbitmq.RabbitQueue.*;
@@ -25,7 +23,6 @@ public class ConsumerServiceImpl implements ConsumerService {
     @RabbitListener(queues = TEXT_MESSAGE_UPDATE)
     public void consumeTextMessagesUpdate(Update update) {
         log.debug("NODE: Text message is received");
-
         mainService.processTextMessage(update);
     }
 
@@ -33,27 +30,13 @@ public class ConsumerServiceImpl implements ConsumerService {
     @RabbitListener(queues = PHOTO_MESSAGE_UPDATE)
     public void consumePhotoMessagesUpdate(Update update) {
         log.debug("NODE: Photo message is received");
-
-        Message message = update.getMessage();
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(message.getChatId())
-                .text("Hello from Node (PHOTO)")
-                .build();
-
-        producerService.producerService(sendMessage);
+        mainService.processPhotoMessage(update);
     }
 
     @Override
     @RabbitListener(queues = DOC_MESSAGE_UPDATE)
     public void consumeDocMessagesUpdate(Update update) {
         log.debug("NODE: Doc message is received");
-
-        Message message = update.getMessage();
-        SendMessage sendMessage = SendMessage.builder()
-                .chatId(message.getChatId())
-                .text("Hello from Node (DOC)")
-                .build();
-
-        producerService.producerService(sendMessage);
+        mainService.processDocMessage(update);
     }
 }

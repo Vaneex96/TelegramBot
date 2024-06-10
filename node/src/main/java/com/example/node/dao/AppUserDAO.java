@@ -1,0 +1,16 @@
+package com.example.node.dao;
+
+
+import com.example.node.entity.AppUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface AppUserDAO extends JpaRepository<AppUser, Long> {
+
+    Optional<AppUser> findByTelegramUserId(Long id);
+
+    Optional<AppUser> findByEmail(String email);
+}
+
+
