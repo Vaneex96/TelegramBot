@@ -1,6 +1,6 @@
 package com.example.dispatcher.service.impl;
 
-import com.example.dispatcher.controller.UpdateController;
+import com.example.dispatcher.controller.UpdateProcessor;
 import com.example.dispatcher.service.AnswerConsumer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -13,7 +13,7 @@ import static com.example.commonrabbitmq.RabbitQueue.ANSWER_MESSAGE;
 @RequiredArgsConstructor
 public class AnswerConsumerImpl implements AnswerConsumer {
 
-    private final UpdateController updateController;
+    private final UpdateProcessor updateController;
 
     @Override
     @RabbitListener(queues = ANSWER_MESSAGE)

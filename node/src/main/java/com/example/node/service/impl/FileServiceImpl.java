@@ -1,5 +1,6 @@
 package com.example.node.service.impl;
 
+import com.example.commonutils.utils.CryptoTool;
 import com.example.node.dao.AppDocumentDAO;
 import com.example.node.dao.AppPhotoDAO;
 import com.example.node.dao.BinaryContentDAO;
@@ -8,6 +9,7 @@ import com.example.node.entity.AppPhoto;
 import com.example.node.entity.BinaryContent;
 import com.example.node.exceptions.UploadFileException;
 import com.example.node.service.FileService;
+import com.example.node.service.enums.LinkType;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +38,9 @@ public class FileServiceImpl implements FileService {
     private final BinaryContentDAO binaryContentDAO;
     private final AppDocumentDAO appDocumentDAO;
     private final AppPhotoDAO appPhotoDAO;
+    private final CryptoTool cryptoTool;
+    @Value("${link.address}")
+    private String linkAddress;
 
 
     @Override
@@ -55,7 +60,8 @@ public class FileServiceImpl implements FileService {
     public AppPhoto processPhoto(Message telegramMessage) {
         //TODO пока что обрабатываем только одно фото в сообщении
         int arrSize = telegramMessage.getPhoto().size();
-        PhotoSize telegramPhoto = telegramMessage.getPhoto().get(arrSize-1);
+        int photoIndex = arrSize > 1? arrSize - 1: 0;
+        PhotoSize telegramPhoto = telegramMessage.getPhoto().get(photoIndex);
         String fileId = telegramPhoto.getFileId();
         ResponseEntity<String> response = getFilePath(fileId);
         if(response.getStatusCode() == HttpStatus.OK){
@@ -65,6 +71,12 @@ public class FileServiceImpl implements FileService {
         } else {
             throw new UploadFileException("Bad response from telegram service: " + response);
         }
+    }
+
+    @Override
+    public String generatedLink(Long docId, LinkType linkType) {
+        String hashId = cryptoTool.hashOf(docId);
+        return "http://" + linkAddress + linkType + "?id=" + hashId;
     }
 
     private AppPhoto buildTransientAppPhoto(PhotoSize photo, BinaryContent persistenceBinaryContent) {

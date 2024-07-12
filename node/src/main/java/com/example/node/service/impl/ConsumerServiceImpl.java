@@ -1,7 +1,7 @@
 package com.example.node.service.impl;
 
+import com.example.node.entity.MailSentResponse;
 import com.example.node.service.ConsumerService;
-import com.example.node.service.MainService;
 import com.example.node.service.ProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -17,7 +17,7 @@ import static com.example.commonrabbitmq.RabbitQueue.*;
 public class ConsumerServiceImpl implements ConsumerService {
 
     private final ProducerService producerService;
-    private final MainService mainService;
+    private final MainServiceImpl mainService;
 
     @Override
     @RabbitListener(queues = TEXT_MESSAGE_UPDATE)
@@ -39,4 +39,12 @@ public class ConsumerServiceImpl implements ConsumerService {
         log.debug("NODE: Doc message is received");
         mainService.processDocMessage(update);
     }
+
+    @Override
+    @RabbitListener(queues = REGISTRATION_MAIL_SEND_RESULT)
+    public void consumeRegistrationMailSendResult(MailSentResponse response) {
+        log.debug("NODE: REGISTRATION_MAIL_SEND_RESULT message is received");
+        mainService.sendAnswer(response.getResponse(), String.valueOf(response.getChatId()));
+    }
+
 }

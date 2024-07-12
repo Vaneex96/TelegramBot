@@ -8,4 +8,7 @@ public class RabbitQueue {
 
     public static final String ANSWER_MESSAGE = "answer_message_update";
 
+    public static final String REGISTRATION_MAIL_MESSAGE = "registration_mail_message";
+    public static final String REGISTRATION_MAIL_SEND_RESULT = "registration_mail_send_result";
+
 }

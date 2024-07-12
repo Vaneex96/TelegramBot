@@ -4,8 +4,10 @@ package com.example.dispatcher.controller;
 import lombok.extern.log4j.Log4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.bots.TelegramWebhookBot;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -13,24 +15,31 @@ import javax.annotation.PostConstruct;
 
 @Log4j
 @Component
-public class TelegramBot extends TelegramLongPollingBot {
+public class TelegramBot extends TelegramWebhookBot {
     @Value("${bot.name}")
     private String botName;
-
     @Value("${bot.token}")
     private String botToken;
+    private UpdateProcessor updateController;
+    @Value("${bot.uri}")
+    private String botUri;
 
-    private UpdateController updateController;
-
-    public TelegramBot(UpdateController updateController){
+    public TelegramBot(UpdateProcessor updateController){
         this.updateController = updateController;
     }
 
     @PostConstruct
     public void init(){
         updateController.registerBot(this);
+        try{
+            SetWebhook setWebhook = SetWebhook.builder()
+                    .url(botUri)
+                    .build();
+            this.setWebhook(setWebhook);
+        } catch (TelegramApiException e) {
+            log.error(e);
+        }
     }
-
 
     @Override
     public String getBotUsername() {
@@ -40,12 +49,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public String getBotToken() {
         return botToken;
-    }
-
-    @Override
-    public void onUpdateReceived(Update update) {
-        updateController.processUpdate(update);
-
     }
 
     public void sendAnswerMessage(SendMessage message){
@@ -58,4 +61,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    @Override
+    public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
+        return null;
+    }
+
+    @Override
+    public String getBotPath() {
+        return "/update";
+    }
 }

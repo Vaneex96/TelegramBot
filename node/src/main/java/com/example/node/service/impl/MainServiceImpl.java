@@ -1,7 +1,5 @@
 package com.example.node.service.impl;
 
-
-import com.example.node.dao.AppPhotoDAO;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.RawDataDAO;
 import com.example.node.dao.enums.UserState;
@@ -10,9 +8,11 @@ import com.example.node.entity.AppPhoto;
 import com.example.node.entity.AppUser;
 import com.example.node.entity.RawData;
 import com.example.node.exceptions.UploadFileException;
+import com.example.node.service.AppUserService;
 import com.example.node.service.FileService;
 import com.example.node.service.MainService;
 import com.example.node.service.ProducerService;
+import com.example.node.service.enums.LinkType;
 import com.example.node.service.enums.ServiceCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -37,6 +37,7 @@ public class MainServiceImpl implements MainService {
     private final ProducerService producerService;
     private final AppUserDAO appUserDAO;
     private final FileService fileService;
+    private final AppUserService appUserService;
 
 
     @Override
@@ -52,7 +53,8 @@ public class MainServiceImpl implements MainService {
         } else if (BASIC_STATE.equals(userState)){
             output = processServiceCommand(appUser, text);
         } else if (WAIT_FOR_EMAIL_STATE.equals(userState)) {
-            //TODO добавить обработку имейла
+            System.out.println("Text: " + text);
+            output = appUserService.setEmail(appUser, text, update.getMessage().getChatId());
         } else {
             output = "Неизвестная ошибка! Введите /cancel и попробуйте снова";
             log.debug("Unknown user state: " + userState);
@@ -67,8 +69,6 @@ public class MainServiceImpl implements MainService {
 
     @Override
     public void processPhotoMessage(Update update) {
-
-        saveRawData(update);
         AppUser appUser = findOrSaveAppUser(update);
         long chatId = update.getMessage().getChatId();
 
@@ -78,8 +78,8 @@ public class MainServiceImpl implements MainService {
 
         try{
             AppPhoto appPhoto = fileService.processPhoto(update.getMessage());
-            //TODO добавить генерацию ссылки для скачивания фото
-            sendAnswer("Фото загружено успешно! Ссылка на скачивание: https://test.pl/get-photo/777", String.valueOf(chatId));
+            String linkForDownload = fileService.generatedLink(appPhoto.getId(), LinkType.GET_PHOTO);
+            sendAnswer("Фото загружено успешно! Ссылка для скачивание: \n" + linkForDownload, String.valueOf(chatId));
         } catch (UploadFileException e){
             log.error(e);
             sendAnswer("К сожалению загрузка файла не удалась! Повторите попытку позже", String.valueOf(chatId));
@@ -89,7 +89,6 @@ public class MainServiceImpl implements MainService {
 
     @Override
     public void processDocMessage(Update update) {
-        saveRawData(update);
         AppUser appUser = findOrSaveAppUser(update);
         long chatId = update.getMessage().getChatId();
 
@@ -98,9 +97,9 @@ public class MainServiceImpl implements MainService {
         }
 
         try{
-            AppDocument doc =fileService.processDoc(update.getMessage());
-            //TODO добавить генерацию ссылки для скачивания файла
-            sendAnswer("Документ загружен успешно! Ссылка на скачивание: https://test.pl/get-doc/777", String.valueOf(chatId));
+            AppDocument doc = fileService.processDoc(update.getMessage());
+            String linkForDownload = fileService.generatedLink(doc.getId(), LinkType.GET_DOC);
+            sendAnswer("Документ загружен успешно! Ссылка для скачивание: " + linkForDownload, String.valueOf(chatId));
         }catch(UploadFileException e){
             log.error(e);
             String error = "К сожалению загрузка файла не удалась! Повторите попытку позже";
@@ -124,7 +123,7 @@ public class MainServiceImpl implements MainService {
         return false;
     }
 
-    private void sendAnswer(String output, String chatId) {
+    public void sendAnswer(String output, String chatId) {
         SendMessage sendMessage = SendMessage.builder()
                 .chatId(chatId)
                 .text(output)
@@ -136,8 +135,7 @@ public class MainServiceImpl implements MainService {
     private String processServiceCommand(AppUser appUser, String cmd) {
         ServiceCommand serviceCommand = ServiceCommand.fromValue(cmd);
         if(REGISTRATION.equals(serviceCommand)){
-            //TODO добавить регестрацию
-            return "Временно недоступно.";
+            return appUserService.registerUser(appUser);
         } else if(HELP.equals(serviceCommand)){
             return help();
         } else if(START.equals(serviceCommand)){
@@ -171,8 +169,7 @@ public class MainServiceImpl implements MainService {
                     .username(telegramUser.getUserName())
                     .firstName(telegramUser.getFirstName())
                     .lastName(telegramUser.getLastName())
-                    //TODO изменить значение по умолчанию после добавления регестрации
-                    .isActive(true)
+                    .isActive(false)
                     .state(BASIC_STATE)
                     .build();
 
