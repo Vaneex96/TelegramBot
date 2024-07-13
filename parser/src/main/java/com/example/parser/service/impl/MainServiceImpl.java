@@ -1,6 +1,9 @@
 package com.example.parser.service.impl;
 
+import com.example.parser.dto.SearchedSeriesDto;
+import com.example.parser.dto.SearchingSeriesToParseDto;
 import com.example.parser.service.MainService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -12,20 +15,31 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Log4j
+@RequiredArgsConstructor
 @Service
 public class MainServiceImpl implements MainService {
 
-    public static void main(String[] args){
-        MainService mainService = new MainServiceImpl();
-        mainService.parse("https://hdrezka.ag/series/melodrama/35328-postuchis-v-moyu-dver-2020.html", "turok1990");
+    private final ProducerService producerService;
+
+    @Override
+    public SearchedSeriesDto searchingSeriesToFollow(SearchingSeriesToParseDto searchingSeriesToParseDto) {
+        List<String> searchedSeriesList = parseSeriesToFollow(searchingSeriesToParseDto.getTitle());
+        SearchedSeriesDto searchedSeriesDto = SearchedSeriesDto.builder()
+                .urlSeriesList(searchedSeriesList)
+                .chatId(searchingSeriesToParseDto.getChatId())
+                .build();
+        producerService.produceSearchedSeriesResponse(searchedSeriesDto);
+        return searchedSeriesDto;
     }
 
     @Override
-    public String parse(String url, String voiceActing) {
+    public String parseFollowSeriesRelease(String url, String voiceActing) {
 
         String xPathVoiceAct = "//*[@id=\"translators-list\"]/li[%s]";
         String xPathSeason = "//*[@id=\"simple-seasons-tabs\"]/li[%s]";
@@ -63,9 +77,31 @@ public class MainServiceImpl implements MainService {
         return null;
     }
 
-
     @Override
-    public String getDocumentWithSelenium(WebDriver webDriver, String xPath, String xPathValue) throws InterruptedException {
+    public List<String> parseSeriesToFollow(String seriesTitle) {
+        String urlSearchingTemplate = "https://hdrezka.ag/search/?do=search&subaction=search&q=";
+
+        try{
+            Document document = Jsoup.connect(urlSearchingTemplate + seriesTitle).get();
+            Elements elements = document.getElementsByAttribute("data-url");
+            List<String> resultList = elements.stream().map(element -> {
+                String elemToString = element.toString();
+                int indexFrom = elemToString.indexOf("data-url=") + 10;
+                int indexTo = elemToString.indexOf("\">");
+
+                return elemToString.substring(indexFrom, indexTo);
+            }).toList();
+
+            return resultList;
+        }catch(Exception e){
+            System.out.println(e);
+        }
+
+        return new ArrayList<>();
+    }
+
+
+    private String getDocumentWithSelenium(WebDriver webDriver, String xPath, String xPathValue) throws InterruptedException {
         WebElement btnToClick = webDriver.findElement(By.xpath(xPath.replace("%s", xPathValue)));
         btnToClick.click();
 
@@ -75,8 +111,8 @@ public class MainServiceImpl implements MainService {
     }
 
 
-    @Override
-    public String getVoiceActingValue(String voiceActing, Document document, String cssQueryVoiceActing){
+
+    private String getVoiceActingValue(String voiceActing, Document document, String cssQueryVoiceActing){
         Elements elementsOfVoices = document.select(cssQueryVoiceActing);
         String voiceActingStringValue = elementsOfVoices.stream()
                 .map(Element::toString)
@@ -94,4 +130,6 @@ public class MainServiceImpl implements MainService {
         assert voiceActingNumValue != null;
         return voiceActingNumValue.substring(1, voiceActingNumValue.length()-1);
     }
+
+
 }

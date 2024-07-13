@@ -1,5 +1,6 @@
 package com.example.node.service.impl;
 
+import com.example.node.dto.SearchedSeriesDto;
 import com.example.node.entity.MailSentResponse;
 import com.example.node.service.ConsumerService;
 import com.example.node.service.ProducerService;
@@ -45,6 +46,12 @@ public class ConsumerServiceImpl implements ConsumerService {
     public void consumeRegistrationMailSendResult(MailSentResponse response) {
         log.debug("NODE: REGISTRATION_MAIL_SEND_RESULT message is received");
         mainService.sendAnswer(response.getResponse(), String.valueOf(response.getChatId()));
+    }
+
+    @Override
+    @RabbitListener(queues = SEARCHED_SERIES_RELEASE_TO_PARSE_RESPONSE)
+    public void consumeSearchedSeriesReleaseToParseResponse(SearchedSeriesDto searchedSeriesDto) {
+        mainService.processSearchedSeriesResponse(searchedSeriesDto);
     }
 
 }

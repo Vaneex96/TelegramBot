@@ -3,6 +3,7 @@ package com.example.node.service.enums;
 public enum ServiceCommand {
     START("/start"),
     REGISTRATION("/registration"),
+    FOLLOW_SERIES_RELEASE("/follow_series_release"),
     HELP("/help"),
     CANCEL("/cancel");
 

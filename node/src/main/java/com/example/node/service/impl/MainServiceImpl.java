@@ -3,15 +3,14 @@ package com.example.node.service.impl;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.RawDataDAO;
 import com.example.node.dao.enums.UserState;
+import com.example.node.dto.SearchedSeriesDto;
+import com.example.node.dto.SearchingSeriesToParseDto;
 import com.example.node.entity.AppDocument;
 import com.example.node.entity.AppPhoto;
 import com.example.node.entity.AppUser;
 import com.example.node.entity.RawData;
 import com.example.node.exceptions.UploadFileException;
-import com.example.node.service.AppUserService;
-import com.example.node.service.FileService;
-import com.example.node.service.MainService;
-import com.example.node.service.ProducerService;
+import com.example.node.service.*;
 import com.example.node.service.enums.LinkType;
 import com.example.node.service.enums.ServiceCommand;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +21,10 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
+import java.util.List;
 import java.util.Optional;
 
-import static com.example.node.dao.enums.UserState.BASIC_STATE;
-import static com.example.node.dao.enums.UserState.WAIT_FOR_EMAIL_STATE;
+import static com.example.node.dao.enums.UserState.*;
 import static com.example.node.service.enums.ServiceCommand.*;
 
 @Service
@@ -39,10 +38,13 @@ public class MainServiceImpl implements MainService {
     private final FileService fileService;
     private final AppUserService appUserService;
 
+    private final FollowReleaseService followReleaseService;
+
 
     @Override
     public void processTextMessage(Update update) {
         AppUser appUser = findOrSaveAppUser(update);
+        long chatId = update.getMessage().getChatId();
         UserState userState = appUser.getState();
         String text = update.getMessage().getText();
         String output = "";
@@ -50,19 +52,28 @@ public class MainServiceImpl implements MainService {
 
         if(CANCEL.equals(serviceCommand)){
             output = cancelProcess(appUser);
+        } else if(FOLLOW_SERIES_RELEASE.equals(serviceCommand)){
+            output = processServiceCommand(appUser, String.valueOf(serviceCommand));
+        } else if(READY_FOR_INPUT_TITLE.equals(userState)){
+            SearchingSeriesToParseDto searchingSeriesToParseDto = SearchingSeriesToParseDto.builder()
+                    .title(text)
+                    .chatId(chatId)
+                    .build();
+            output = followReleaseService.findSeriesOnWebsite(searchingSeriesToParseDto);
+            AppUser appUserTemp = appUserDAO.findByTelegramUserId(appUser.getTelegramUserId()).get();
+            appUserTemp.setState(BASIC_STATE);
+            appUserDAO.save(appUserTemp);
         } else if (BASIC_STATE.equals(userState)){
             output = processServiceCommand(appUser, text);
         } else if (WAIT_FOR_EMAIL_STATE.equals(userState)) {
-            System.out.println("Text: " + text);
-            output = appUserService.setEmail(appUser, text, update.getMessage().getChatId());
+            output = appUserService.setEmail(appUser, text,chatId);
         } else {
             output = "Неизвестная ошибка! Введите /cancel и попробуйте снова";
             log.debug("Unknown user state: " + userState);
 
         }
 
-        String chatId = update.getMessage().getChatId().toString();
-        sendAnswer(output, chatId);
+        sendAnswer(output, String.valueOf(chatId));
 
         saveRawData(update);
     }
@@ -108,6 +119,11 @@ public class MainServiceImpl implements MainService {
 
     }
 
+
+    public void processSearchedSeriesResponse(SearchedSeriesDto searchedSeriesDto) {
+        sendSearchedSeriesUrlAnswer(searchedSeriesDto);
+    }
+
     private boolean isNotAllowToSendContent(long chatId, AppUser appUser) {
         UserState userState = appUser.getState();
         if(!appUser.getIsActive()){
@@ -132,10 +148,26 @@ public class MainServiceImpl implements MainService {
         producerService.producerService(sendMessage);
     }
 
+    public void sendSearchedSeriesUrlAnswer(SearchedSeriesDto searchedSeriesDto){
+        List<String> listSearchedSeries = searchedSeriesDto.getUrlSeriesList();
+        String chatId = String.valueOf(searchedSeriesDto.getChatId());
+        for(String url: listSearchedSeries){
+            sendAnswer(url, chatId);
+        }
+
+        String output = "Чтоб следить за выходом новых серий:\n" +
+                "- Скопируйте и вставьте ссылку на сериал который Вы искали, и нажмите кнопку отправить.\n" +
+                "Если нужного сериала нет в списке:\n" +
+                "- Введите команду /follow_series_release и попробуйте ввести название еще раз!";
+        sendAnswer(output, chatId);
+    }
+
     private String processServiceCommand(AppUser appUser, String cmd) {
         ServiceCommand serviceCommand = ServiceCommand.fromValue(cmd);
         if(REGISTRATION.equals(serviceCommand)){
             return appUserService.registerUser(appUser);
+        } else if(FOLLOW_SERIES_RELEASE.equals(serviceCommand)){
+            return followReleaseService.prepareUserToInputTitle(appUser);
         } else if(HELP.equals(serviceCommand)){
             return help();
         } else if(START.equals(serviceCommand)){
@@ -147,8 +179,9 @@ public class MainServiceImpl implements MainService {
 
     private String help() {
         return "Список доступных команд:\n"
-                + "/cancel - отмена выполнение текещей команды;\n"
-                + "/registration - регистрация пользователя.";
+                + "/cancel - отмена выполнение текещей команды.\n"
+                + "/registration - регистрация пользователя.\n"
+                + "/follow_series_release - следите за выходом новых серий любимого сериала";
     }
 
     private String cancelProcess(AppUser appUser) {

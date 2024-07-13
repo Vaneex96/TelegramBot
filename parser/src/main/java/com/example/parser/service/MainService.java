@@ -1,12 +1,12 @@
 package com.example.parser.service;
 
-import org.jsoup.nodes.Document;
-import org.openqa.selenium.WebDriver;
+import com.example.parser.dto.SearchedSeriesDto;
+import com.example.parser.dto.SearchingSeriesToParseDto;
 
-import java.io.IOException;
+import java.util.List;
 
 public interface MainService {
-    String parse(String url, String voiceActing);
-    String getVoiceActingValue(String voiceActing, Document document, String cssQueryVoiceActing) throws IOException;
-    String getDocumentWithSelenium(WebDriver webDriver, String xPath, String xPathValue) throws InterruptedException;
+    SearchedSeriesDto searchingSeriesToFollow(SearchingSeriesToParseDto searchingSeriesToParseDto);
+    String parseFollowSeriesRelease(String url, String voiceActing);
+    List<String> parseSeriesToFollow(String seriesTitle);
 }
