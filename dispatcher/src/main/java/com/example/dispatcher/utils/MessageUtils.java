@@ -9,7 +9,13 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 public class MessageUtils {
 
     public SendMessage generateSendMessageWithText(Update update, String text){
-        Message message = update.getMessage();
+        Message message;
+        if(update.hasCallbackQuery()){
+            message = update.getCallbackQuery().getMessage();
+        } else {
+            message = update.getMessage();
+        }
+
         return SendMessage.builder()
                 .chatId(message.getChatId().toString())
                 .text(text)

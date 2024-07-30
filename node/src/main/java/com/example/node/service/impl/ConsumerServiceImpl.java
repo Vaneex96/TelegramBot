@@ -1,6 +1,7 @@
 package com.example.node.service.impl;
 
-import com.example.node.dto.SearchedSeriesDto;
+import com.example.node.dao.enums.UserState;
+import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.node.entity.MailSentResponse;
 import com.example.node.service.ConsumerService;
 import com.example.node.service.ProducerService;
@@ -23,7 +24,9 @@ public class ConsumerServiceImpl implements ConsumerService {
     @Override
     @RabbitListener(queues = TEXT_MESSAGE_UPDATE)
     public void consumeTextMessagesUpdate(Update update) {
-        log.debug("NODE: Text message is received");
+//        if(update.hasCallbackQuery()){
+//            log.debug("NODE: Text message is received: " + update.getCallbackQuery().getMessage());
+//        }
         mainService.processTextMessage(update);
     }
 
@@ -50,8 +53,14 @@ public class ConsumerServiceImpl implements ConsumerService {
 
     @Override
     @RabbitListener(queues = SEARCHED_SERIES_RELEASE_TO_PARSE_RESPONSE)
-    public void consumeSearchedSeriesReleaseToParseResponse(SearchedSeriesDto searchedSeriesDto) {
-        mainService.processSearchedSeriesResponse(searchedSeriesDto);
+    public void consumeSearchedSeriesReleaseToParseResponse(TransferDataBetweenNodeAndParserDto dto) {
+//        try{
+//            System.out.println(dto.getVoiceActing());
+//            mainService.processSearchedSeriesResponse(dto);
+//        }catch(NullPointerException e){
+//            log.error(e);
+//        }
+        mainService.processSearchedSeriesResponse(dto);
     }
 
 }

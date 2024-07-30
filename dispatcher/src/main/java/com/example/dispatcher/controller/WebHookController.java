@@ -15,7 +15,13 @@ public class WebHookController {
 
     @RequestMapping(value = "/callback/update", method = RequestMethod.POST)
     public ResponseEntity<?> onUpdateReceived(@RequestBody Update update){
+//        if(update.hasCallbackQuery()){
+//            System.out.println(update.getCallbackQuery().getMessage().getText());
+//            System.out.println(update.getCallbackQuery().getData());
+//            return ResponseEntity.ok().build();
+//        }
         updateProcessor.processUpdate(update);
         return ResponseEntity.ok().build();
     }
+
 }

@@ -1,7 +1,7 @@
 package com.example.parser.service;
 
-import com.example.parser.dto.SearchingSeriesToParseDto;
+import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
 
 public interface ConsumerService {
-    void consumeSearchingSeriesToParse(SearchingSeriesToParseDto searchingSeriesToParseDto);
+    void consumeSearchingSeriesToParse(TransferDataBetweenNodeAndParserDto dto);
 }

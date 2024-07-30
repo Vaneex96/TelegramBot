@@ -1,6 +1,6 @@
 package com.example.parser.service.impl;
 
-import com.example.parser.dto.SearchingSeriesToParseDto;
+import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.parser.service.ConsumerService;
 import com.example.parser.service.MainService;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,11 @@ public class ConsumerServiceImpl implements ConsumerService {
 
     @Override
     @RabbitListener(queues = SEARCHING_SERIES_RELEASE_TO_PARSE)
-    public void consumeSearchingSeriesToParse(SearchingSeriesToParseDto searchingSeriesToParseDto) {
-        mainService.searchingSeriesToFollow(searchingSeriesToParseDto);
+    public void consumeSearchingSeriesToParse(TransferDataBetweenNodeAndParserDto dto) {
+        try{
+            mainService.processFollowingToSeries(dto);
+        }catch(NullPointerException e){
+            System.out.println(e);
+        }
     }
 }

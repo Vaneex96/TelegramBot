@@ -1,7 +1,7 @@
 package com.example.parser.service.impl;
 
-import com.example.parser.dto.SearchedSeriesDto;
-import com.example.parser.dto.SearchingSeriesToParseDto;
+import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.parser.entity.enums.UserState;
 import com.example.parser.service.MainService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.example.parser.entity.enums.UserState.*;
+
 @Log4j
 @RequiredArgsConstructor
 @Service
@@ -27,16 +29,43 @@ public class MainServiceImpl implements MainService {
 
     private final ProducerService producerService;
 
+
     @Override
-    public SearchedSeriesDto searchingSeriesToFollow(SearchingSeriesToParseDto searchingSeriesToParseDto) {
-        List<String> searchedSeriesList = parseSeriesToFollow(searchingSeriesToParseDto.getTitle());
-        SearchedSeriesDto searchedSeriesDto = SearchedSeriesDto.builder()
-                .urlSeriesList(searchedSeriesList)
-                .chatId(searchingSeriesToParseDto.getChatId())
-                .build();
-        producerService.produceSearchedSeriesResponse(searchedSeriesDto);
-        return searchedSeriesDto;
+    public void processFollowingToSeries(TransferDataBetweenNodeAndParserDto dto) {
+        UserState userState = dto.getUserState();
+        long chatId = dto.getChatId();
+        System.out.println("chatId: " + chatId);
+
+        if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
+            List<String> searchedSeriesList = parseSeriesToFollow(dto.getTitle());
+            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
+                    .chatId(chatId)
+                    .userState(READY_FOR_INPUT_TITLE_STATE)
+                    .urlSeriesList(searchedSeriesList)
+                    .build();
+            producerService.produceSearchedSeriesResponse(newDto);
+        } else if (userState.equals(READY_FOR_INPUT_URL_STATE)) {
+            List<String> voicesList = getListVoiceActing(dto.getUrl());
+            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
+                    .chatId(chatId)
+                    .userState(READY_FOR_INPUT_URL_STATE)
+                    .voiceActing(voicesList)
+                    .build();
+            producerService.produceSearchedSeriesResponse(newDto);
+        } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
+//            String urlResult = parseFollowSeriesRelease("https://hdrezka.ag/series/melodrama/35328-postuchis-v-moyu-dver-2020.html", dto.getVoiceActing().get(0));
+            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
+                    .chatId(chatId)
+                    .title("Постучись в мою дверь")
+                    .userState(BASIC_STATE)
+                    .resultUrl("https://hdrezka.ag/series/melodrama/35328-postuchis-v-moyu-dver-2020.html")
+                    .build();
+            producerService.produceSearchedSeriesResponse(newDto);
+        }
     }
+
+
+
 
     @Override
     public String parseFollowSeriesRelease(String url, String voiceActing) {
@@ -101,6 +130,7 @@ public class MainServiceImpl implements MainService {
     }
 
 
+
     private String getDocumentWithSelenium(WebDriver webDriver, String xPath, String xPathValue) throws InterruptedException {
         WebElement btnToClick = webDriver.findElement(By.xpath(xPath.replace("%s", xPathValue)));
         btnToClick.click();
@@ -129,6 +159,26 @@ public class MainServiceImpl implements MainService {
         }
         assert voiceActingNumValue != null;
         return voiceActingNumValue.substring(1, voiceActingNumValue.length()-1);
+    }
+
+    private static List<String> getListVoiceActing(String url){
+        try{
+            Document document = Jsoup.connect(url).get();
+            Elements elements = document.select(".b-translator__item");
+            List<String> resultList = elements.stream().map(element -> {
+                String elemToString = element.toString();
+                int indexFrom = elemToString.indexOf("title=") + 7;
+                int indexTo = elemToString.indexOf("\" class");
+
+                return elemToString.substring(indexFrom, indexTo);
+            }).toList();
+
+            return resultList;
+        }catch(Exception e){
+            System.out.println(e);
+        }
+
+        return new ArrayList<>();
     }
 
 

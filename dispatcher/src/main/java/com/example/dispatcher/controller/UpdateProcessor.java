@@ -29,7 +29,9 @@ public class UpdateProcessor {
             return;
         }
 
-        if(update.hasMessage()){
+        if(update.hasCallbackQuery()){
+            distributeMessagesByType(update);
+        }else if(update.hasMessage()){
             distributeMessagesByType(update);
         } else {
             log.error("Received unsupported message type");
@@ -38,6 +40,11 @@ public class UpdateProcessor {
     }
 
     private void distributeMessagesByType(Update update) {
+        if(update.hasCallbackQuery()){
+            processTextMessage(update);
+            return;
+        }
+
         Message message = update.getMessage();
 
         if(message.hasText()){

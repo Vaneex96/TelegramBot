@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -37,5 +39,19 @@ public class AppUser {
 
     @Enumerated(EnumType.STRING)
     private UserState state;
+
+    @Builder.Default
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @JoinTable(
+            name="app_user_series_url",
+            joinColumns = @JoinColumn(name="app_user_id"),
+            inverseJoinColumns = @JoinColumn(name="url_id")
+    )
+    private List<AppSeriesUrl> urlList = new ArrayList<>();
+
+    public void addAppSeriesUrl(AppSeriesUrl appSeriesUrl){
+        urlList.add(appSeriesUrl);
+        appSeriesUrl.getAppUsers().add(this);
+    }
 
 }

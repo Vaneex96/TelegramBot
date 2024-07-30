@@ -3,8 +3,7 @@ package com.example.node.service.impl;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.RawDataDAO;
 import com.example.node.dao.enums.UserState;
-import com.example.node.dto.SearchedSeriesDto;
-import com.example.node.dto.SearchingSeriesToParseDto;
+import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.node.entity.AppDocument;
 import com.example.node.entity.AppPhoto;
 import com.example.node.entity.AppUser;
@@ -17,10 +16,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,31 +41,35 @@ public class MainServiceImpl implements MainService {
     private final FileService fileService;
     private final AppUserService appUserService;
 
-    private final FollowReleaseService followReleaseService;
+    private final FollowReleaseServiceImpl followReleaseService;
 
 
     @Override
     public void processTextMessage(Update update) {
         AppUser appUser = findOrSaveAppUser(update);
-        long chatId = update.getMessage().getChatId();
+        Message message;
+        if(update.hasCallbackQuery()){
+            message = update.getCallbackQuery().getMessage();
+        }else{
+            message = update.getMessage();
+        }
+        long chatId = message.getChatId();
+        String text = message.getText();
         UserState userState = appUser.getState();
-        String text = update.getMessage().getText();
+        List<UserState> userStatesForFollowing = List.of(READY_FOR_INPUT_TITLE_STATE, READY_FOR_INPUT_VOICE_STATE, READY_FOR_INPUT_URL_STATE);
         String output = "";
         ServiceCommand serviceCommand = ServiceCommand.fromValue(text);
 
         if(CANCEL.equals(serviceCommand)){
             output = cancelProcess(appUser);
-        } else if(FOLLOW_SERIES_RELEASE.equals(serviceCommand)){
+        } else if(FOLLOW_SERIES_RELEASE.equals(serviceCommand)) {
             output = processServiceCommand(appUser, String.valueOf(serviceCommand));
-        } else if(READY_FOR_INPUT_TITLE.equals(userState)){
-            SearchingSeriesToParseDto searchingSeriesToParseDto = SearchingSeriesToParseDto.builder()
-                    .title(text)
-                    .chatId(chatId)
-                    .build();
-            output = followReleaseService.findSeriesOnWebsite(searchingSeriesToParseDto);
-            AppUser appUserTemp = appUserDAO.findByTelegramUserId(appUser.getTelegramUserId()).get();
-            appUserTemp.setState(BASIC_STATE);
-            appUserDAO.save(appUserTemp);
+        } else if (userStatesForFollowing.contains(userState)) {
+            if(update.hasCallbackQuery()){
+                text = update.getCallbackQuery().getMessage().getText();
+            }
+            output = followReleaseService.processFollowRelease(appUser, text, chatId);
+            if(output == null) return;
         } else if (BASIC_STATE.equals(userState)){
             output = processServiceCommand(appUser, text);
         } else if (WAIT_FOR_EMAIL_STATE.equals(userState)) {
@@ -77,6 +84,7 @@ public class MainServiceImpl implements MainService {
 
         saveRawData(update);
     }
+
 
     @Override
     public void processPhotoMessage(Update update) {
@@ -120,8 +128,26 @@ public class MainServiceImpl implements MainService {
     }
 
 
-    public void processSearchedSeriesResponse(SearchedSeriesDto searchedSeriesDto) {
-        sendSearchedSeriesUrlAnswer(searchedSeriesDto);
+    public void processSearchedSeriesResponse(TransferDataBetweenNodeAndParserDto dto) {
+        UserState userState = dto.getUserState();
+
+
+        if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
+            sendSearchedSeriesUrlAnswer(dto);
+        }else if (userState.equals(UserState.READY_FOR_INPUT_URL_STATE)) {
+//            sendAnswer("Выберите озвучку из списка, скопируйте и отправьте: \n" + dto.getVoiceActing().toString(), String.valueOf(dto.getChatId()));
+            sendSearchedSeriesVoicesButtonAnswer(dto);
+        } else if (userState.equals(BASIC_STATE)) {
+            sendAnswer("Вы успешно подписались на сериал: " + dto.getTitle(), String.valueOf(dto.getChatId()));
+        }
+
+//        if(userState.equals(UserState.READY_FOR_INPUT_VOICE_STATE)){
+//            sendAnswer("Подписка оформленна успешно! Теперь вам будут приходить уведомления о выходе новой серии!", String.valueOf(dto.getChatId()));
+//        } else if(userState.equals(UserState.READY_FOR_INPUT_URL_STATE)){
+//            sendAnswer(dto.getVoiceActing().toString(), String.valueOf(dto.getChatId()));
+//        } else {
+//            sendSearchedSeriesUrlAnswer(dto);
+//        }
     }
 
     private boolean isNotAllowToSendContent(long chatId, AppUser appUser) {
@@ -148,19 +174,63 @@ public class MainServiceImpl implements MainService {
         producerService.producerService(sendMessage);
     }
 
-    public void sendSearchedSeriesUrlAnswer(SearchedSeriesDto searchedSeriesDto){
-        List<String> listSearchedSeries = searchedSeriesDto.getUrlSeriesList();
-        String chatId = String.valueOf(searchedSeriesDto.getChatId());
+    private void sendSearchedSeriesUrlAnswer(TransferDataBetweenNodeAndParserDto dto){
+        List<String> listSearchedSeries = dto.getUrlSeriesList();
+        String chatId = String.valueOf(dto.getChatId());
+
+        SendMessage sendMessage = new SendMessage();
+
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+        InlineKeyboardButton button = new InlineKeyboardButton();
+        button.setText("Выбрать!");
+        button.setCallbackData("url");
+
+        List<InlineKeyboardButton> inlineKeyboardButtons = List.of(button);
+        List<List<InlineKeyboardButton>> row = List.of(inlineKeyboardButtons);
+        inlineKeyboardMarkup.setKeyboard(row);
+
         for(String url: listSearchedSeries){
-            sendAnswer(url, chatId);
+            sendMessage.setText(String.format("%s", url));
+            sendMessage.setChatId(dto.getChatId());
+            sendMessage.setReplyMarkup(inlineKeyboardMarkup);
+            producerService.producerService(sendMessage);
         }
 
         String output = "Чтоб следить за выходом новых серий:\n" +
                 "- Скопируйте и вставьте ссылку на сериал который Вы искали, и нажмите кнопку отправить.\n" +
                 "Если нужного сериала нет в списке:\n" +
+                "- Введите команду /cancel. \n" +
                 "- Введите команду /follow_series_release и попробуйте ввести название еще раз!";
         sendAnswer(output, chatId);
     }
+
+    private void sendSearchedSeriesVoicesButtonAnswer(TransferDataBetweenNodeAndParserDto dto){
+        List<String> listSearchedVoiceActing = dto.getVoiceActing();
+        String chatId = String.valueOf(dto.getChatId());
+
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+        for(String voice: listSearchedVoiceActing){
+            InlineKeyboardButton button = InlineKeyboardButton.builder()
+                    .text(voice)
+                    .callbackData("voice")
+                    .build();
+            List<InlineKeyboardButton> inlineKeyboardButtonList = List.of(button);
+            rows.add(inlineKeyboardButtonList);
+        }
+        inlineKeyboardMarkup.setKeyboard(rows);
+        SendMessage sendMessage = SendMessage.builder()
+                .text("Для завершения процесса подписки, выберите озвучку из списка: ")
+                .chatId(chatId)
+                .replyMarkup(inlineKeyboardMarkup)
+                .build();
+
+        producerService.producerService(sendMessage);
+
+    }
+
+
 
     private String processServiceCommand(AppUser appUser, String cmd) {
         ServiceCommand serviceCommand = ServiceCommand.fromValue(cmd);
@@ -173,6 +243,8 @@ public class MainServiceImpl implements MainService {
         } else if(START.equals(serviceCommand)){
             return "Приветствую! Чтобы посмотреть список доступных команд введите /help";
         } else {
+            System.out.println(cmd);
+            System.out.println(appUser.getState());
             return "Неизвестная команда! Чтобы посмотреть список доступных команд введите /help";
         }
     }
@@ -192,8 +264,14 @@ public class MainServiceImpl implements MainService {
     }
 
     public AppUser findOrSaveAppUser(Update update) {
-        Message textMessage = update.getMessage();
-        User telegramUser = textMessage.getFrom();
+        User telegramUser;
+        if(update.hasCallbackQuery()){
+            telegramUser = update.getCallbackQuery().getFrom();
+            System.out.println("telegramUserId: " + telegramUser.getId());
+        }else{
+            telegramUser = update.getMessage().getFrom();
+        }
+
 
         Optional<AppUser> persistentUser = appUserDAO.findByTelegramUserId(telegramUser.getId());
         if(persistentUser.isEmpty()){
