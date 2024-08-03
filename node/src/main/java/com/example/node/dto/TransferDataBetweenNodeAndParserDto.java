@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -14,10 +15,14 @@ import java.util.List;
 @AllArgsConstructor
 public class TransferDataBetweenNodeAndParserDto {
     private long chatId;
+    private long telegramUserId;
     private UserState userState;
     private String title;
     private String url;
     private List<String> voiceActing;
     private List<String> urlSeriesList;
     private String resultUrl;
+    private long urlSeriesId;
+    private AppSeriesUrlDto appSeriesUrlDto;
+    private List<AppSeriesUrlDto> appSeriesUrlDtoList;
 }

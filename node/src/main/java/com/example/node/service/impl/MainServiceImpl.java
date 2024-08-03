@@ -1,22 +1,25 @@
 package com.example.node.service.impl;
 
+import com.example.node.dao.AppSeriesUrlDAO;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.RawDataDAO;
 import com.example.node.dao.enums.UserState;
+import com.example.node.dto.AppSeriesUrlDto;
 import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
-import com.example.node.entity.AppDocument;
-import com.example.node.entity.AppPhoto;
-import com.example.node.entity.AppUser;
-import com.example.node.entity.RawData;
+import com.example.node.entity.*;
 import com.example.node.exceptions.UploadFileException;
-import com.example.node.service.*;
+import com.example.node.service.AppUserService;
+import com.example.node.service.FileService;
+import com.example.node.service.MainService;
+import com.example.node.service.ProducerService;
 import com.example.node.service.enums.LinkType;
 import com.example.node.service.enums.ServiceCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
@@ -30,22 +33,24 @@ import java.util.Optional;
 import static com.example.node.dao.enums.UserState.*;
 import static com.example.node.service.enums.ServiceCommand.*;
 
-@Service
-@RequiredArgsConstructor
+@EnableScheduling
 @Log4j
+@RequiredArgsConstructor
+@Service
 public class MainServiceImpl implements MainService {
 
     private final RawDataDAO rawDataDAO;
     private final ProducerService producerService;
     private final AppUserDAO appUserDAO;
+    private final AppSeriesUrlDAO appSeriesUrlDAO;
     private final FileService fileService;
     private final AppUserService appUserService;
 
     private final FollowReleaseServiceImpl followReleaseService;
 
-
     @Override
     public void processTextMessage(Update update) {
+
         AppUser appUser = findOrSaveAppUser(update);
         Message message;
         if(update.hasCallbackQuery()){
@@ -66,10 +71,15 @@ public class MainServiceImpl implements MainService {
             output = processServiceCommand(appUser, String.valueOf(serviceCommand));
         } else if (userStatesForFollowing.contains(userState)) {
             if(update.hasCallbackQuery()){
-                text = update.getCallbackQuery().getMessage().getText();
+                if(update.getCallbackQuery().getMessage().getText().equals("Для завершения процесса подписки, выберите озвучку из списка:")){
+                    text = update.getCallbackQuery().getData();
+                    System.out.println("data!!!!: " + text);
+                } else {
+                    text = update.getCallbackQuery().getMessage().getText();
+                }
+                System.out.println("text: " + text);
             }
             output = followReleaseService.processFollowRelease(appUser, text, chatId);
-            if(output == null) return;
         } else if (BASIC_STATE.equals(userState)){
             output = processServiceCommand(appUser, text);
         } else if (WAIT_FOR_EMAIL_STATE.equals(userState)) {
@@ -131,23 +141,47 @@ public class MainServiceImpl implements MainService {
     public void processSearchedSeriesResponse(TransferDataBetweenNodeAndParserDto dto) {
         UserState userState = dto.getUserState();
 
+        if(dto.getChatId() == -777){
+            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
+            if(appSeriesUrlDtoList.size() > 0){
 
-        if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
+                for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
+                    List<AppUser> allFollowedUsers = followReleaseService.findAllFollowedUsers(appSeriesUrlDto.getId());
+
+                    followReleaseService.updateAppSeriesUrl(appSeriesUrlDto);
+
+                    for(AppUser appUser: allFollowedUsers){
+                        sendAnswer("Вышла новая серия сериала: \n" +
+                                appSeriesUrlDto.getNewUrl() + "\n" +
+                                "Приятного просмотра!", String.valueOf(appUser.getTelegramUserId()));
+                    }
+
+                }
+
+            }
+
+        }else if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
             sendSearchedSeriesUrlAnswer(dto);
         }else if (userState.equals(UserState.READY_FOR_INPUT_URL_STATE)) {
-//            sendAnswer("Выберите озвучку из списка, скопируйте и отправьте: \n" + dto.getVoiceActing().toString(), String.valueOf(dto.getChatId()));
             sendSearchedSeriesVoicesButtonAnswer(dto);
-        } else if (userState.equals(BASIC_STATE)) {
-            sendAnswer("Вы успешно подписались на сериал: " + dto.getTitle(), String.valueOf(dto.getChatId()));
+        } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
+            AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(dto.getUrlSeriesId()).orElseThrow();
+            AppSeriesUrlDto appSeriesUrlDto = dto.getAppSeriesUrlDto();
+
+            appSeriesUrl.setUrl(dto.getResultUrl());
+            appSeriesUrl.setVoiceActingName(appSeriesUrlDto.getVoiceActingName());
+            appSeriesUrl.setVoiceActingValue(appSeriesUrlDto.getVoiceActingValue());
+            appSeriesUrl.setLastSeason(appSeriesUrlDto.getLastSeason());
+            appSeriesUrl.setLastEpisode(appSeriesUrlDto.getLastEpisode());
+
+            appSeriesUrlDAO.save(appSeriesUrl);
+
+            AppUser appUser = appUserDAO.findByTelegramUserId(dto.getTelegramUserId()).orElseThrow();
+            appUser.setState(BASIC_STATE);
+            appUserDAO.save(appUser);
+            sendAnswer("Подписка на уведомление о выходе новой серии оформлена! Перейдите по ссылку для просмотра последней серии \n" + dto.getResultUrl(), String.valueOf(dto.getChatId()));
         }
 
-//        if(userState.equals(UserState.READY_FOR_INPUT_VOICE_STATE)){
-//            sendAnswer("Подписка оформленна успешно! Теперь вам будут приходить уведомления о выходе новой серии!", String.valueOf(dto.getChatId()));
-//        } else if(userState.equals(UserState.READY_FOR_INPUT_URL_STATE)){
-//            sendAnswer(dto.getVoiceActing().toString(), String.valueOf(dto.getChatId()));
-//        } else {
-//            sendSearchedSeriesUrlAnswer(dto);
-//        }
     }
 
     private boolean isNotAllowToSendContent(long chatId, AppUser appUser) {
@@ -196,8 +230,7 @@ public class MainServiceImpl implements MainService {
             producerService.producerService(sendMessage);
         }
 
-        String output = "Чтоб следить за выходом новых серий:\n" +
-                "- Скопируйте и вставьте ссылку на сериал который Вы искали, и нажмите кнопку отправить.\n" +
+        String output =
                 "Если нужного сериала нет в списке:\n" +
                 "- Введите команду /cancel. \n" +
                 "- Введите команду /follow_series_release и попробуйте ввести название еще раз!";
@@ -208,25 +241,37 @@ public class MainServiceImpl implements MainService {
         List<String> listSearchedVoiceActing = dto.getVoiceActing();
         String chatId = String.valueOf(dto.getChatId());
 
-        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        if(listSearchedVoiceActing.size() > 0){
 
-        for(String voice: listSearchedVoiceActing){
-            InlineKeyboardButton button = InlineKeyboardButton.builder()
-                    .text(voice)
-                    .callbackData("voice")
+            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+            for(String voice: listSearchedVoiceActing){
+                InlineKeyboardButton button = InlineKeyboardButton.builder()
+                        .text(voice)
+                        .callbackData(dto.getUrlSeriesId() + "/" + voice)
+                        .build();
+                List<InlineKeyboardButton> inlineKeyboardButtonList = List.of(button);
+                rows.add(inlineKeyboardButtonList);
+            }
+            inlineKeyboardMarkup.setKeyboard(rows);
+            SendMessage sendMessage = SendMessage.builder()
+                    .text("Для завершения процесса подписки, выберите озвучку из списка: ")
+                    .chatId(chatId)
+                    .replyMarkup(inlineKeyboardMarkup)
                     .build();
-            List<InlineKeyboardButton> inlineKeyboardButtonList = List.of(button);
-            rows.add(inlineKeyboardButtonList);
-        }
-        inlineKeyboardMarkup.setKeyboard(rows);
-        SendMessage sendMessage = SendMessage.builder()
-                .text("Для завершения процесса подписки, выберите озвучку из списка: ")
-                .chatId(chatId)
-                .replyMarkup(inlineKeyboardMarkup)
-                .build();
 
-        producerService.producerService(sendMessage);
+
+            producerService.producerService(sendMessage);
+        } else {
+            //TODO реализовать отправление ссылки на последнюю серии последнего сезона
+            SendMessage sendMessage = SendMessage.builder()
+                    .text("Вы успешно подписались на сериал")
+                    .chatId(chatId)
+                    .build();
+
+            producerService.producerService(sendMessage);
+        }
 
     }
 
@@ -297,4 +342,9 @@ public class MainServiceImpl implements MainService {
         rawDataDAO.save(rawData);
     }
 
+    @Scheduled(fixedDelay = 3600000)
+    private void notifyUsersReleaseOfSeries(){
+        System.out.println("Планированая проверка выхода новых серий запущена!");
+        followReleaseService.sendUrlsForCheckReleaseSeries();
+    }
 }

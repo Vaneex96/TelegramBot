@@ -3,6 +3,7 @@ package com.example.node.service.impl;
 import com.example.node.dao.AppSeriesUrlDAO;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.enums.UserState;
+import com.example.node.dto.AppSeriesUrlDto;
 import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.node.entity.AppSeriesUrl;
 import com.example.node.entity.AppUser;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.node.dao.enums.UserState.*;
@@ -44,54 +46,50 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
             output = getVoicesActing(appUser, text, chatId);
         } else if (READY_FOR_INPUT_VOICE_STATE.equals(userState)) {
             output = followRelease(appUser, text, chatId);
-            return null;
         }
 
         return output;
     }
 
-    public String followRelease(AppUser appUser, String voice, long chatId){
-                List<AppSeriesUrl> appSeriesUrls = appUserDAO.findByEmail(appUser.getEmail())
-                .orElseThrow()
-                .getUrlList();
-        String url = "";
-        if(appSeriesUrls.size() > 0){
-            url = appSeriesUrls.get(0).getUrl();
-        } else {
-            appUser.setState(BASIC_STATE);
-            appUserDAO.save(appUser);
-            return null;
-        }
+    public String followRelease(AppUser appUser, String urlIdAndVoice, long chatId){
+        long urlId = Long.parseLong(urlIdAndVoice.substring(0, urlIdAndVoice.indexOf("/")));
+        String voice = urlIdAndVoice.substring(urlIdAndVoice.indexOf("/") + 1);
+        AppSeriesUrl url = appSeriesUrlDAO.findById(urlId).orElseThrow();
+
         TransferDataBetweenNodeAndParserDto dto = TransferDataBetweenNodeAndParserDto.builder()
                 .chatId(chatId)
+                .telegramUserId(appUser.getTelegramUserId())
                 .voiceActing(List.of(voice))
-                .url(url)
+                .url(url.getUrl())
                 .userState(READY_FOR_INPUT_VOICE_STATE)
+                .urlSeriesId(urlId)
                 .build();
         producerService.produceSearchingSeries(dto);
-        appUser.setState(BASIC_STATE);
-        appUserDAO.save(appUser);
-        return url;
-    }
 
+        return "Идет обработка информации...";
+    }
 
 
     @Override
     public String getVoicesActing(AppUser appUser, String url, long chatId) {
+
+        AppSeriesUrl transientAppSeriesUrl = AppSeriesUrl.builder()
+                .url(url)
+                .build();
+
+        AppSeriesUrl persistentAppSeriesUrl = appSeriesUrlDAO.save(transientAppSeriesUrl);
+
+        appUser.addAppSeriesUrl(persistentAppSeriesUrl);
+        appUser.setState(READY_FOR_INPUT_VOICE_STATE);
+        appUserDAO.save(appUser);
+
         TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto = TransferDataBetweenNodeAndParserDto.builder()
                 .chatId(chatId)
                 .url(url)
                 .userState(READY_FOR_INPUT_URL_STATE)
+                .urlSeriesId(persistentAppSeriesUrl.getUrlId())
                 .build();
         producerService.produceSearchingSeries(searchingSeriesToParseDto);
-        appUser.setState(READY_FOR_INPUT_VOICE_STATE);
-
-        AppSeriesUrl appSeriesUrl = AppSeriesUrl.builder()
-                .url(url)
-                .build();
-
-        appUser.addAppSeriesUrl(appSeriesUrl);
-        appUserDAO.save(appUser);
 
         return "Идет обработка информации...";
     }
@@ -107,5 +105,47 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
     public String findSeriesOnWebsite(TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto){
         producerService.produceSearchingSeries(searchingSeriesToParseDto);
         return "Ваш запрос обрабатывается, пожалуйста, подождите...";
+    }
+
+    @Override
+    public void sendUrlsForCheckReleaseSeries() {
+        List<AppSeriesUrlDto> appSeriesUrlDtoList = new ArrayList<>();
+        appSeriesUrlDAO.findAll().forEach(item -> {
+            System.out.println("url: " + item.getUrl());
+            AppSeriesUrlDto appSeriesUrlDto = AppSeriesUrlDto.builder()
+                    .id(item.getUrlId())
+                    .url(item.getUrl())
+                    .lastSeason(item.getLastSeason())
+                    .lastEpisode(item.getLastEpisode())
+                    .voiceActingName(item.getVoiceActingName())
+                    .build();
+            appSeriesUrlDtoList.add(appSeriesUrlDto);
+        });
+
+        if(appSeriesUrlDtoList.size() == 0) return;
+
+        TransferDataBetweenNodeAndParserDto dto = TransferDataBetweenNodeAndParserDto.builder()
+                .chatId(-777)
+                .userState(BASIC_STATE)
+                .appSeriesUrlDtoList(appSeriesUrlDtoList)
+                .build();
+
+        producerService.produceSearchingSeries(dto);
+    }
+
+    @Override
+    public List<AppUser> findAllFollowedUsers(long id) {
+        System.out.println("findByUrl: " + id);
+        AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(id).orElseThrow();
+        return appSeriesUrl.getAppUsers();
+    }
+
+    @Override
+    public void updateAppSeriesUrl(AppSeriesUrlDto appSeriesUrlDto) {
+        AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(appSeriesUrlDto.getId()).get();
+        appSeriesUrl.setUrl(appSeriesUrlDto.getNewUrl());
+        appSeriesUrl.setLastSeason(appSeriesUrlDto.getLastSeason());
+        appSeriesUrl.setLastEpisode(appSeriesUrlDto.getLastEpisode());
+        appSeriesUrlDAO.save(appSeriesUrl);
     }
 }

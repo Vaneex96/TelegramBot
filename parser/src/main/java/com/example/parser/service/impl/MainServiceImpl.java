@@ -1,6 +1,7 @@
 package com.example.parser.service.impl;
 
 import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.parser.entity.AppSeriesUrlDto;
 import com.example.parser.entity.enums.UserState;
 import com.example.parser.service.MainService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,9 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,25 +53,56 @@ public class MainServiceImpl implements MainService {
                     .chatId(chatId)
                     .userState(READY_FOR_INPUT_URL_STATE)
                     .voiceActing(voicesList)
+                    .urlSeriesId(dto.getUrlSeriesId())
                     .build();
             producerService.produceSearchedSeriesResponse(newDto);
         } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
-//            String urlResult = parseFollowSeriesRelease("https://hdrezka.ag/series/melodrama/35328-postuchis-v-moyu-dver-2020.html", dto.getVoiceActing().get(0));
+            AppSeriesUrlDto appSeriesUrlDto = parseFollowSeriesRelease(dto.getUrl(), dto.getVoiceActing().get(0));
+            String urlResult = appSeriesUrlDto.getUrl();
             TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
                     .chatId(chatId)
-                    .title("Постучись в мою дверь")
-                    .userState(BASIC_STATE)
-                    .resultUrl("https://hdrezka.ag/series/melodrama/35328-postuchis-v-moyu-dver-2020.html")
+                    .telegramUserId(dto.getTelegramUserId())
+                    .userState(READY_FOR_INPUT_VOICE_STATE)
+                    .resultUrl(urlResult)
+                    .urlSeriesId(dto.getUrlSeriesId())
+                    .appSeriesUrlDto(appSeriesUrlDto)
                     .build();
             producerService.produceSearchedSeriesResponse(newDto);
+        } else if(chatId == -777){
+            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
+            List<AppSeriesUrlDto> resultList = new ArrayList<>();
+
+            for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
+                int endIndex = appSeriesUrlDto.getUrl().indexOf("html") + 4;
+                String url = appSeriesUrlDto.getUrl().substring(0, endIndex);
+                AppSeriesUrlDto actualAppSeriesUrlDto = parseFollowSeriesRelease(url, appSeriesUrlDto.getVoiceActingName());
+
+                if(appSeriesUrlDto.getLastEpisode() != actualAppSeriesUrlDto.getLastEpisode() || appSeriesUrlDto.getLastSeason() != actualAppSeriesUrlDto.getLastSeason()){
+                    appSeriesUrlDto.setNewUrl(actualAppSeriesUrlDto.getUrl());
+                    appSeriesUrlDto.setLastSeason(actualAppSeriesUrlDto.getLastSeason());
+                    appSeriesUrlDto.setLastEpisode(actualAppSeriesUrlDto.getLastEpisode());
+                    resultList.add(appSeriesUrlDto);
+                }
+
+            }
+
+            System.out.println(appSeriesUrlDtoList);
+
+            if(resultList.size() > 0){
+                TransferDataBetweenNodeAndParserDto resultDto = TransferDataBetweenNodeAndParserDto.builder()
+                        .chatId(-777)
+                        .appSeriesUrlDtoList(resultList)
+                        .build();
+
+                producerService.produceSearchedSeriesResponse(resultDto);
+            }
+
         }
     }
 
 
-
-
     @Override
-    public String parseFollowSeriesRelease(String url, String voiceActing) {
+    public AppSeriesUrlDto parseFollowSeriesRelease(String url, String voiceActing) {
 
         String xPathVoiceAct = "//*[@id=\"translators-list\"]/li[%s]";
         String xPathSeason = "//*[@id=\"simple-seasons-tabs\"]/li[%s]";
@@ -99,7 +133,14 @@ public class MainServiceImpl implements MainService {
             String resultUrl = String.format("%s#t:%s-s:%s-e:%s", url, voiceActingValue, lastSeasonNum, lastEpisodeNum);
             webDriver.close();
             System.out.println(resultUrl);
-            return resultUrl;
+            AppSeriesUrlDto appSeriesUrlDto = AppSeriesUrlDto.builder()
+                    .url(resultUrl)
+                    .voiceActingName(voiceActing)
+                    .voiceActingValue(Integer.parseInt(voiceActingValue))
+                    .lastSeason(Integer.parseInt(lastSeasonNum))
+                    .lastEpisode(Integer.parseInt(lastEpisodeNum))
+                    .build();
+            return appSeriesUrlDto;
         }catch(Exception e){
             System.out.println(e.getMessage());
         }

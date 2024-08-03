@@ -20,7 +20,16 @@ public class AppSeriesUrl {
 
     private String url;
 
+    private String voiceActingName;
+
+    private int voiceActingValue;
+
+    private int lastSeason;
+
+    private int lastEpisode;
+
+
     @Builder.Default
-    @ManyToMany(mappedBy = "urlList")
+    @ManyToMany(mappedBy = "urlList", fetch = FetchType.EAGER)
     private List<AppUser> appUsers = new ArrayList<>();
 }
