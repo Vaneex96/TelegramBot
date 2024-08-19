@@ -3,6 +3,7 @@ package com.example.node.service.impl;
 import com.example.node.dao.AppSeriesUrlDAO;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.RawDataDAO;
+import com.example.node.dao.VoiceActingDAO;
 import com.example.node.dao.enums.UserState;
 import com.example.node.dto.AppSeriesUrlDto;
 import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
@@ -16,6 +17,7 @@ import com.example.node.service.enums.LinkType;
 import com.example.node.service.enums.ServiceCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.example.node.dao.enums.UserState.*;
@@ -47,17 +50,23 @@ public class MainServiceImpl implements MainService {
     private final AppUserService appUserService;
 
     private final FollowReleaseServiceImpl followReleaseService;
+    private final VoiceActingDAO voiceActingDAO;
+
+    @Value("${secret.id}")
+    private long secretId;
 
     @Override
     public void processTextMessage(Update update) {
 
         AppUser appUser = findOrSaveAppUser(update);
         Message message;
+
         if(update.hasCallbackQuery()){
             message = update.getCallbackQuery().getMessage();
         }else{
             message = update.getMessage();
         }
+
         long chatId = message.getChatId();
         String text = message.getText();
         UserState userState = appUser.getState();
@@ -73,13 +82,13 @@ public class MainServiceImpl implements MainService {
             if(update.hasCallbackQuery()){
                 if(update.getCallbackQuery().getMessage().getText().equals("Для завершения процесса подписки, выберите озвучку из списка:")){
                     text = update.getCallbackQuery().getData();
-                    System.out.println("data!!!!: " + text);
                 } else {
                     text = update.getCallbackQuery().getMessage().getText();
                 }
-                System.out.println("text: " + text);
             }
-            output = followReleaseService.processFollowRelease(appUser, text, chatId);
+            SendMessage sendMessage = followReleaseService.processFollowRelease(appUser, text, chatId);
+            producerService.producerService(sendMessage);
+            return;
         } else if (BASIC_STATE.equals(userState)){
             output = processServiceCommand(appUser, text);
         } else if (WAIT_FOR_EMAIL_STATE.equals(userState)) {
@@ -141,7 +150,7 @@ public class MainServiceImpl implements MainService {
     public void processSearchedSeriesResponse(TransferDataBetweenNodeAndParserDto dto) {
         UserState userState = dto.getUserState();
 
-        if(dto.getChatId() == -777){
+        if(dto.getChatId() == secretId){
             List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
             if(appSeriesUrlDtoList.size() > 0){
 
@@ -163,12 +172,16 @@ public class MainServiceImpl implements MainService {
         }else if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
             sendSearchedSeriesUrlAnswer(dto);
         }else if (userState.equals(UserState.READY_FOR_INPUT_URL_STATE)) {
-            sendSearchedSeriesVoicesButtonAnswer(dto);
+            try{
+                SendMessage sendMessage = followReleaseService.createSearchedSeriesVoiceButtonsAnswer(dto);
+                producerService.producerService(sendMessage);
+            }catch(Exception e){
+                log.error(e);
+            }
         } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
             AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(dto.getUrlSeriesId()).orElseThrow();
             AppSeriesUrlDto appSeriesUrlDto = dto.getAppSeriesUrlDto();
 
-            appSeriesUrl.setUrl(dto.getResultUrl());
             appSeriesUrl.setVoiceActingName(appSeriesUrlDto.getVoiceActingName());
             appSeriesUrl.setVoiceActingValue(appSeriesUrlDto.getVoiceActingValue());
             appSeriesUrl.setLastSeason(appSeriesUrlDto.getLastSeason());
@@ -179,7 +192,7 @@ public class MainServiceImpl implements MainService {
             AppUser appUser = appUserDAO.findByTelegramUserId(dto.getTelegramUserId()).orElseThrow();
             appUser.setState(BASIC_STATE);
             appUserDAO.save(appUser);
-            sendAnswer("Подписка на уведомление о выходе новой серии оформлена! Перейдите по ссылку для просмотра последней серии \n" + dto.getResultUrl(), String.valueOf(dto.getChatId()));
+            sendAnswer("Подписка на уведомление о выходе новой серии оформлена! Перейдите по ссылкe для просмотра последней серии \n" + dto.getResultUrl(), String.valueOf(dto.getChatId()));
         }
 
     }
@@ -236,45 +249,6 @@ public class MainServiceImpl implements MainService {
                 "- Введите команду /follow_series_release и попробуйте ввести название еще раз!";
         sendAnswer(output, chatId);
     }
-
-    private void sendSearchedSeriesVoicesButtonAnswer(TransferDataBetweenNodeAndParserDto dto){
-        List<String> listSearchedVoiceActing = dto.getVoiceActing();
-        String chatId = String.valueOf(dto.getChatId());
-
-        if(listSearchedVoiceActing.size() > 0){
-
-            InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
-            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-
-            for(String voice: listSearchedVoiceActing){
-                InlineKeyboardButton button = InlineKeyboardButton.builder()
-                        .text(voice)
-                        .callbackData(dto.getUrlSeriesId() + "/" + voice)
-                        .build();
-                List<InlineKeyboardButton> inlineKeyboardButtonList = List.of(button);
-                rows.add(inlineKeyboardButtonList);
-            }
-            inlineKeyboardMarkup.setKeyboard(rows);
-            SendMessage sendMessage = SendMessage.builder()
-                    .text("Для завершения процесса подписки, выберите озвучку из списка: ")
-                    .chatId(chatId)
-                    .replyMarkup(inlineKeyboardMarkup)
-                    .build();
-
-
-            producerService.producerService(sendMessage);
-        } else {
-            //TODO реализовать отправление ссылки на последнюю серии последнего сезона
-            SendMessage sendMessage = SendMessage.builder()
-                    .text("Вы успешно подписались на сериал")
-                    .chatId(chatId)
-                    .build();
-
-            producerService.producerService(sendMessage);
-        }
-
-    }
-
 
 
     private String processServiceCommand(AppUser appUser, String cmd) {
@@ -342,9 +316,9 @@ public class MainServiceImpl implements MainService {
         rawDataDAO.save(rawData);
     }
 
-    @Scheduled(fixedDelay = 3600000)
-    private void notifyUsersReleaseOfSeries(){
-        System.out.println("Планированая проверка выхода новых серий запущена!");
-        followReleaseService.sendUrlsForCheckReleaseSeries();
-    }
+//    @Scheduled(fixedDelay = 3600000)
+//    private void notifyUsersReleaseOfSeries(){
+//        System.out.println("Планированая проверка выхода новых серий запущена!");
+//        followReleaseService.sendUrlsForCheckReleaseSeries();
+//    }
 }

@@ -1,4 +1,4 @@
-package com.example.parser.service.impl;
+package com.example.parser.service;
 
 import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
 

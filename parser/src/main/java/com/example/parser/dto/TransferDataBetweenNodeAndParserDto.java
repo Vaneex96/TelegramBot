@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -20,6 +21,7 @@ public class TransferDataBetweenNodeAndParserDto {
     private String title;
     private String url;
     private List<String> voiceActing;
+    private Map<Long, String> voicesActingMap;
     private List<String> urlSeriesList;
     private String resultUrl;
     private long urlSeriesId;

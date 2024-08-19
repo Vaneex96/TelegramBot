@@ -41,7 +41,7 @@ public class AppUser {
     private UserState state;
 
     @Builder.Default
-    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name="app_user_series_url",
             joinColumns = @JoinColumn(name="app_user_id"),
@@ -52,6 +52,16 @@ public class AppUser {
     public void addAppSeriesUrl(AppSeriesUrl appSeriesUrl){
         urlList.add(appSeriesUrl);
         appSeriesUrl.getAppUsers().add(this);
+    }
+
+    public boolean removeAppSeriesUrlByUrlId(long urlId){
+        for(int i = 0; i < this.urlList.size(); i++){
+            if(this.urlList.get(i).getUrlId() == urlId){
+                this.urlList.remove(i);
+                return true;
+            }
+        }
+        return false;
     }
 
 }

@@ -4,16 +4,19 @@ import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.parser.entity.AppSeriesUrlDto;
 import com.example.parser.entity.enums.UserState;
 import com.example.parser.service.MainService;
+import com.example.parser.service.ProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.example.parser.entity.enums.UserState.*;
 
@@ -31,13 +35,29 @@ import static com.example.parser.entity.enums.UserState.*;
 public class MainServiceImpl implements MainService {
 
     private final ProducerService producerService;
+    @Value("${url.searching_template.hdrezka}")
+    private String urlSearchingTemplate;
+
+    @Value("${secret.id}")
+    private long secretId;
+
+    @Value("${webdriver.path}")
+    private String webDriverPath;
+
+    @Value("${xpath_voice_act}")
+    private String xPathVoiceAct;
+
+    @Value("${xpath_season}")
+    private String xPathSeason;
+
+    @Value("${css_selector_for_translator}")
+    private String cssSelectorForTranslator;
 
 
     @Override
     public void processFollowingToSeries(TransferDataBetweenNodeAndParserDto dto) {
         UserState userState = dto.getUserState();
         long chatId = dto.getChatId();
-        System.out.println("chatId: " + chatId);
 
         if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
             List<String> searchedSeriesList = parseSeriesToFollow(dto.getTitle());
@@ -48,15 +68,16 @@ public class MainServiceImpl implements MainService {
                     .build();
             producerService.produceSearchedSeriesResponse(newDto);
         } else if (userState.equals(READY_FOR_INPUT_URL_STATE)) {
-            List<String> voicesList = getListVoiceActing(dto.getUrl());
+            Map<Long, String> voicesActingMap = getListVoiceActing(dto.getUrl());
             TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
                     .chatId(chatId)
                     .userState(READY_FOR_INPUT_URL_STATE)
-                    .voiceActing(voicesList)
+                    .voicesActingMap(voicesActingMap)
                     .urlSeriesId(dto.getUrlSeriesId())
                     .build();
             producerService.produceSearchedSeriesResponse(newDto);
         } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
+            System.out.println(dto.getUrl());
             AppSeriesUrlDto appSeriesUrlDto = parseFollowSeriesRelease(dto.getUrl(), dto.getVoiceActing().get(0));
             String urlResult = appSeriesUrlDto.getUrl();
             TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
@@ -68,13 +89,12 @@ public class MainServiceImpl implements MainService {
                     .appSeriesUrlDto(appSeriesUrlDto)
                     .build();
             producerService.produceSearchedSeriesResponse(newDto);
-        } else if(chatId == -777){
+        } else if(chatId == secretId){
             List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
             List<AppSeriesUrlDto> resultList = new ArrayList<>();
 
             for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
-                int endIndex = appSeriesUrlDto.getUrl().indexOf("html") + 4;
-                String url = appSeriesUrlDto.getUrl().substring(0, endIndex);
+                String url = appSeriesUrlDto.getUrl();
                 AppSeriesUrlDto actualAppSeriesUrlDto = parseFollowSeriesRelease(url, appSeriesUrlDto.getVoiceActingName());
 
                 if(appSeriesUrlDto.getLastEpisode() != actualAppSeriesUrlDto.getLastEpisode() || appSeriesUrlDto.getLastSeason() != actualAppSeriesUrlDto.getLastSeason()){
@@ -86,11 +106,10 @@ public class MainServiceImpl implements MainService {
 
             }
 
-            System.out.println(appSeriesUrlDtoList);
-
             if(resultList.size() > 0){
                 TransferDataBetweenNodeAndParserDto resultDto = TransferDataBetweenNodeAndParserDto.builder()
-                        .chatId(-777)
+                        .chatId(secretId)
+                        .userState(BASIC_STATE)
                         .appSeriesUrlDtoList(resultList)
                         .build();
 
@@ -104,17 +123,13 @@ public class MainServiceImpl implements MainService {
     @Override
     public AppSeriesUrlDto parseFollowSeriesRelease(String url, String voiceActing) {
 
-        String xPathVoiceAct = "//*[@id=\"translators-list\"]/li[%s]";
-        String xPathSeason = "//*[@id=\"simple-seasons-tabs\"]/li[%s]";
-
         try{
-            System.setProperty("webdriver.chrome.driver", "D:\\myProjectsCopy\\IdeaProjects\\MyBot\\MyBot\\parser\\selenium\\chromedriver.exe");
+            System.setProperty("webdriver.chrome.driver", webDriverPath);
             WebDriver webDriver = new ChromeDriver();
             webDriver.get(url);
 
             Document document0 = Jsoup.connect(url).get();
-
-            Elements listOfVoiceAct =  document0.select(".b-translator__item");
+            Elements listOfVoiceAct =  document0.select(cssSelectorForTranslator);
             String serialVoiceNum = "";
             for(int i = 0; i < listOfVoiceAct.size(); i++){
                 if(listOfVoiceAct.get(i).toString().contains(voiceActing)){
@@ -128,7 +143,7 @@ public class MainServiceImpl implements MainService {
 
             Document document2 = Jsoup.parse(getDocumentWithSelenium(webDriver, xPathSeason, lastSeasonNum));
             String lastEpisodeNum = String.valueOf(document2.getElementsByAttributeValue("data-season_id", lastSeasonNum).size());
-            String voiceActingValue = getVoiceActingValue(voiceActing, document2, ".b-translator__item");
+            String voiceActingValue = getVoiceActingValue(voiceActing, document2, cssSelectorForTranslator);
 
             String resultUrl = String.format("%s#t:%s-s:%s-e:%s", url, voiceActingValue, lastSeasonNum, lastEpisodeNum);
             webDriver.close();
@@ -149,18 +164,23 @@ public class MainServiceImpl implements MainService {
 
     @Override
     public List<String> parseSeriesToFollow(String seriesTitle) {
-        String urlSearchingTemplate = "https://hdrezka.ag/search/?do=search&subaction=search&q=";
-
+        String regex = "https://hdrezka.ag/series/[a-z]{3,20}/([a-z0-9\\-]{10,100}).html";
         try{
+            int seriesLimit = 3;
             Document document = Jsoup.connect(urlSearchingTemplate + seriesTitle).get();
             Elements elements = document.getElementsByAttribute("data-url");
-            List<String> resultList = elements.stream().map(element -> {
+            List<String> resultList = new ArrayList<>();
+
+            for(Element element: elements){
+                if(resultList.size() == seriesLimit) break;
                 String elemToString = element.toString();
                 int indexFrom = elemToString.indexOf("data-url=") + 10;
                 int indexTo = elemToString.indexOf("\">");
-
-                return elemToString.substring(indexFrom, indexTo);
-            }).toList();
+                String res = elemToString.substring(indexFrom, indexTo);
+                if(res.matches(regex)){
+                    resultList.add(res);
+                }
+            }
 
             return resultList;
         }catch(Exception e){
@@ -202,25 +222,24 @@ public class MainServiceImpl implements MainService {
         return voiceActingNumValue.substring(1, voiceActingNumValue.length()-1);
     }
 
-    private static List<String> getListVoiceActing(String url){
+    private static Map<Long, String> getListVoiceActing(String url){
         try{
             Document document = Jsoup.connect(url).get();
             Elements elements = document.select(".b-translator__item");
-            List<String> resultList = elements.stream().map(element -> {
-                String elemToString = element.toString();
-                int indexFrom = elemToString.indexOf("title=") + 7;
-                int indexTo = elemToString.indexOf("\" class");
+            Map<Long, String> resultMap = elements.stream()
+                    .map(Node::toString)
+        .collect(Collectors.toMap(str -> Long.valueOf(str.substring(str.indexOf("_id=")+5, str.indexOf("\">"))),
+                str -> str.substring(str.indexOf("title=") + 7, str.indexOf("\" class"))
+                ));
 
-                return elemToString.substring(indexFrom, indexTo);
-            }).toList();
-
-            return resultList;
+            return resultMap;
         }catch(Exception e){
             System.out.println(e);
         }
 
-        return new ArrayList<>();
+        return new HashMap<>();
     }
 
 
 }
+

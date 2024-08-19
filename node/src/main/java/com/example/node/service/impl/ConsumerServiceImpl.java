@@ -54,13 +54,12 @@ public class ConsumerServiceImpl implements ConsumerService {
     @Override
     @RabbitListener(queues = SEARCHED_SERIES_RELEASE_TO_PARSE_RESPONSE)
     public void consumeSearchedSeriesReleaseToParseResponse(TransferDataBetweenNodeAndParserDto dto) {
-//        try{
-//            System.out.println(dto.getVoiceActing());
-//            mainService.processSearchedSeriesResponse(dto);
-//        }catch(NullPointerException e){
-//            log.error(e);
-//        }
-        mainService.processSearchedSeriesResponse(dto);
+        try{
+            mainService.processSearchedSeriesResponse(dto);
+        }catch(NullPointerException e){
+            System.out.println(e.getMessage());
+            log.error(e);
+        }
     }
 
 }
