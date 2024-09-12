@@ -1,6 +1,6 @@
 package com.example.parser.service.impl;
 
-import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.parser.dto.*;
 import com.example.parser.entity.AppSeriesUrlDto;
 import com.example.parser.entity.enums.UserState;
 import com.example.parser.service.MainService;
@@ -55,73 +55,80 @@ public class MainServiceImpl implements MainService {
 
 
     @Override
-    public void processFollowingToSeries(TransferDataBetweenNodeAndParserDto dto) {
-        UserState userState = dto.getUserState();
-        long chatId = dto.getChatId();
+    public void processCheckingReleases(TransferDataBetweenNodeAndParserDto dto) {
+//        //TODO
+//        UserState userState = dto.getUserState();
+//        long chatId = dto.getChatId();
+//
+//            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
+//            List<AppSeriesUrlDto> resultList = new ArrayList<>();
+//
+//            for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
+//                String url = appSeriesUrlDto.getUrl();
+//                AppSeriesUrlDto actualAppSeriesUrlDto = parseFollowSeriesRelease(url, appSeriesUrlDto.getVoiceActingName());
+//
+//                if(appSeriesUrlDto.getLastEpisode() != actualAppSeriesUrlDto.getLastEpisode() || appSeriesUrlDto.getLastSeason() != actualAppSeriesUrlDto.getLastSeason()){
+//                    appSeriesUrlDto.setNewUrl(actualAppSeriesUrlDto.getUrl());
+//                    appSeriesUrlDto.setLastSeason(actualAppSeriesUrlDto.getLastSeason());
+//                    appSeriesUrlDto.setLastEpisode(actualAppSeriesUrlDto.getLastEpisode());
+//                    resultList.add(appSeriesUrlDto);
+//                }
+//
+//            }
+//
+//            if(resultList.size() > 0){
+//                TransferDataBetweenNodeAndParserDto resultDto = TransferDataBetweenNodeAndParserDto.builder()
+//                        .chatId(secretId)
+//                        .userState(BASIC_STATE)
+//                        .appSeriesUrlDtoList(resultList)
+//                        .build();
 
-        if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
-            List<String> searchedSeriesList = parseSeriesToFollow(dto.getTitle());
-            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
-                    .chatId(chatId)
-                    .userState(READY_FOR_INPUT_TITLE_STATE)
-                    .urlSeriesList(searchedSeriesList)
-                    .build();
-            producerService.produceSearchedSeriesResponse(newDto);
-        } else if (userState.equals(READY_FOR_INPUT_URL_STATE)) {
-            Map<Long, String> voicesActingMap = getListVoiceActing(dto.getUrl());
-            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
-                    .chatId(chatId)
-                    .userState(READY_FOR_INPUT_URL_STATE)
-                    .voicesActingMap(voicesActingMap)
-                    .urlSeriesId(dto.getUrlSeriesId())
-                    .build();
-            producerService.produceSearchedSeriesResponse(newDto);
-        } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
-            System.out.println(dto.getUrl());
-            AppSeriesUrlDto appSeriesUrlDto = parseFollowSeriesRelease(dto.getUrl(), dto.getVoiceActing().get(0));
-            String urlResult = appSeriesUrlDto.getUrl();
-            TransferDataBetweenNodeAndParserDto newDto = TransferDataBetweenNodeAndParserDto.builder()
-                    .chatId(chatId)
-                    .telegramUserId(dto.getTelegramUserId())
-                    .userState(READY_FOR_INPUT_VOICE_STATE)
-                    .resultUrl(urlResult)
-                    .urlSeriesId(dto.getUrlSeriesId())
-                    .appSeriesUrlDto(appSeriesUrlDto)
-                    .build();
-            producerService.produceSearchedSeriesResponse(newDto);
-        } else if(chatId == secretId){
-            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
-            List<AppSeriesUrlDto> resultList = new ArrayList<>();
+//                producerService.produceResultFindSeriesToSubscribe(resultDto);
+//            }
 
-            for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
-                String url = appSeriesUrlDto.getUrl();
-                AppSeriesUrlDto actualAppSeriesUrlDto = parseFollowSeriesRelease(url, appSeriesUrlDto.getVoiceActingName());
+    }
 
-                if(appSeriesUrlDto.getLastEpisode() != actualAppSeriesUrlDto.getLastEpisode() || appSeriesUrlDto.getLastSeason() != actualAppSeriesUrlDto.getLastSeason()){
-                    appSeriesUrlDto.setNewUrl(actualAppSeriesUrlDto.getUrl());
-                    appSeriesUrlDto.setLastSeason(actualAppSeriesUrlDto.getLastSeason());
-                    appSeriesUrlDto.setLastEpisode(actualAppSeriesUrlDto.getLastEpisode());
-                    resultList.add(appSeriesUrlDto);
-                }
-
-            }
-
-            if(resultList.size() > 0){
-                TransferDataBetweenNodeAndParserDto resultDto = TransferDataBetweenNodeAndParserDto.builder()
-                        .chatId(secretId)
-                        .userState(BASIC_STATE)
-                        .appSeriesUrlDtoList(resultList)
-                        .build();
-
-                producerService.produceSearchedSeriesResponse(resultDto);
-            }
-
-        }
+    @Override
+    public void processFindSeries(FindSeriesToSubscribeDto findSeriesToSubscribeDto) {
+        List<String> searchedSeriesList = parseSeriesToFollow(findSeriesToSubscribeDto.getTitle());
+        FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto = FindSeriesToSubscribeResultDto.builder()
+                .chatId(findSeriesToSubscribeDto.getChatId())
+                .urlSeriesList(searchedSeriesList)
+                .build();
+        producerService.produceResultFindSeriesToSubscribe(findSeriesToSubscribeResultDto);
     }
 
 
     @Override
-    public AppSeriesUrlDto parseFollowSeriesRelease(String url, String voiceActing) {
+    public void processFindSeriesVoiceActs(FindSeriesVoiceActsDto findSeriesVoiceActsDto) {
+        Map<Long, String> mapVoiceActing = getListVoiceActing(findSeriesVoiceActsDto.getUrl());
+        FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto = FindSeriesVoiceActsResultDto.builder()
+                .chatId(findSeriesVoiceActsDto.getChatId())
+                .seriesUrlId(findSeriesVoiceActsDto.getUrlSeriesId())
+                .mapVoiceActing(mapVoiceActing)
+                .build();
+
+        producerService.produceResultFindSeriesVoiceActs(findSeriesVoiceActsResultDto);
+    }
+
+    @Override
+    public void processFindLastSeries(FindLastSeriesDto findLastSeriesDto) {
+        AppSeriesUrlDto appSeriesUrlDto = parseFollowSeriesRelease(findLastSeriesDto.getUrl(), findLastSeriesDto.getVoiceActing());
+        String urlResult = appSeriesUrlDto.getUrl();
+
+        FindLastSeriesResultDto findLastSeriesResultDto = FindLastSeriesResultDto.builder()
+                .chatId(findLastSeriesDto.getChatId())
+                .telegramUserId(findLastSeriesDto.getTelegramUserId())
+                .resultUrl(urlResult)
+                .urlSeriesId(findLastSeriesDto.getUrlSeriesId())
+                .appSeriesUrlDto(appSeriesUrlDto)
+                .build();
+
+        producerService.produceResultFindLastSeries(findLastSeriesResultDto);
+    }
+
+
+    private AppSeriesUrlDto parseFollowSeriesRelease(String url, String voiceActing) {
 
         try{
             System.setProperty("webdriver.chrome.driver", webDriverPath);
@@ -162,8 +169,8 @@ public class MainServiceImpl implements MainService {
         return null;
     }
 
-    @Override
-    public List<String> parseSeriesToFollow(String seriesTitle) {
+
+    private List<String> parseSeriesToFollow(String seriesTitle) {
         String regex = "https://hdrezka.ag/series/[a-z]{3,20}/([a-z0-9\\-]{10,100}).html";
         try{
             int seriesLimit = 3;

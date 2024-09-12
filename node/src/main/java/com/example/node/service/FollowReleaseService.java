@@ -1,7 +1,7 @@
 package com.example.node.service;
 
 import com.example.node.dto.AppSeriesUrlDto;
-import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.node.dto.FindSeriesVoiceActsResultDto;
 import com.example.node.entity.AppUser;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
@@ -13,7 +13,7 @@ public interface FollowReleaseService {
     SendMessage getVoicesActing(AppUser appUser, String url, long chatId);
     String prepareUserToInputTitle(AppUser appUser);
 
-    String findSeriesOnWebsite(TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto);
+    String findSeriesOnWebsite(AppUser appUser, String text, long chatId);
 
     void sendUrlsForCheckReleaseSeries();
 
@@ -21,5 +21,5 @@ public interface FollowReleaseService {
 
     void updateAppSeriesUrl(AppSeriesUrlDto appSeriesUrlDto);
 
-    SendMessage createSearchedSeriesVoiceButtonsAnswer(TransferDataBetweenNodeAndParserDto dto);
+    SendMessage createSearchedSeriesVoiceButtonsAnswer(FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto);
 }

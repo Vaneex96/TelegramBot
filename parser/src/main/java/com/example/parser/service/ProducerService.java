@@ -1,7 +1,13 @@
 package com.example.parser.service;
 
-import com.example.parser.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.parser.dto.FindLastSeriesResultDto;
+import com.example.parser.dto.FindSeriesToSubscribeResultDto;
+import com.example.parser.dto.FindSeriesVoiceActsResultDto;
 
 public interface ProducerService {
-    void produceSearchedSeriesResponse(TransferDataBetweenNodeAndParserDto dto);
+    void produceResultFindSeriesToSubscribe(FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto);
+
+    void produceResultFindSeriesVoiceActs(FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto);
+
+    void produceResultFindLastSeries(FindLastSeriesResultDto findLastSeriesResultDto);
 }

@@ -3,8 +3,7 @@ package com.example.node.service.impl;
 import com.example.node.dao.AppSeriesUrlDAO;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.enums.UserState;
-import com.example.node.dto.AppSeriesUrlDto;
-import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.node.dto.*;
 import com.example.node.entity.AppSeriesUrl;
 import com.example.node.entity.AppUser;
 import com.example.node.service.FollowReleaseService;
@@ -44,18 +43,8 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
                 .build();
 
         if(READY_FOR_INPUT_TITLE_STATE.equals(userState) && !text.contains("https://") && !text.contains("http://")){
-            TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto = TransferDataBetweenNodeAndParserDto.builder()
-                            .title(text)
-                            .chatId(chatId)
-                            .userState(READY_FOR_INPUT_TITLE_STATE)
-                            .build();
-
-            String outputText = findSeriesOnWebsite(searchingSeriesToParseDto);
+            String outputText = findSeriesOnWebsite(appUser, text, chatId);
             outputSendMessage.setText(outputText);
-
-            AppUser appUserTemp = appUserDAO.findByTelegramUserId(appUser.getTelegramUserId()).get();
-            appUserTemp.setState(READY_FOR_INPUT_URL_STATE);
-            appUserDAO.save(appUserTemp);
         } else if (READY_FOR_INPUT_URL_STATE.equals(userState) || isMatched){
 
             if(isMatched){
@@ -105,15 +94,14 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
         appUser.setState(BASIC_STATE);
         appUserDAO.save(appUser);
 
-        TransferDataBetweenNodeAndParserDto dto = TransferDataBetweenNodeAndParserDto.builder()
+        FindLastSeriesDto findLastSeriesDto = FindLastSeriesDto.builder()
                 .chatId(chatId)
                 .telegramUserId(appUser.getTelegramUserId())
-                .voiceActing(List.of(voice))
+                .voiceActing(voice)
                 .url(appSeriesUrl.getUrl())
-                .userState(READY_FOR_INPUT_VOICE_STATE)
                 .urlSeriesId(urlId)
                 .build();
-        producerService.produceSearchingSeries(dto);
+        producerService.produceFindLastSeries(findLastSeriesDto);
 
         return infoIsLoading();
     }
@@ -158,13 +146,12 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
         appUser.setState(READY_FOR_INPUT_VOICE_STATE);
         appUserDAO.save(appUser);
 
-        TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto = TransferDataBetweenNodeAndParserDto.builder()
+        FindSeriesVoiceActsDto findSeriesVoiceActsDto = FindSeriesVoiceActsDto.builder()
                 .chatId(chatId)
                 .url(url)
-                .userState(READY_FOR_INPUT_URL_STATE)
                 .urlSeriesId(persistentAppSeriesUrl.getUrlId())
                 .build();
-        producerService.produceSearchingSeries(searchingSeriesToParseDto);
+        producerService.produceFindSeriesVoiceActs(findSeriesVoiceActsDto);
 
         return SendMessage.builder()
                 .chatId(chatId)
@@ -180,8 +167,17 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
     }
 
     @Override
-    public String findSeriesOnWebsite(TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto){
-        producerService.produceSearchingSeries(searchingSeriesToParseDto);
+    public String findSeriesOnWebsite(AppUser appUser, String title, long chatId){
+        FindSeriesToSubscribeDto findSeriesToSubscribeDto = FindSeriesToSubscribeDto.builder()
+                .chatId(chatId)
+                .title(title)
+                .build();
+
+        AppUser appUserTemp = appUserDAO.findByTelegramUserId(appUser.getTelegramUserId()).get();
+        appUserTemp.setState(READY_FOR_INPUT_URL_STATE);
+        appUserDAO.save(appUserTemp);
+
+        producerService.produceFindSeriesToSubscribe(findSeriesToSubscribeDto);
         return infoIsLoading();
     }
 
@@ -208,7 +204,8 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
                 .appSeriesUrlDtoList(appSeriesUrlDtoList)
                 .build();
 
-        producerService.produceSearchingSeries(dto);
+        //TODO
+//        producerService.produceFindSeriesToSubscribe(dto);
     }
 
     @Override
@@ -227,11 +224,11 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
     }
 
     @Override
-    public SendMessage createSearchedSeriesVoiceButtonsAnswer(TransferDataBetweenNodeAndParserDto dto){
+    public SendMessage createSearchedSeriesVoiceButtonsAnswer(FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto){
         //TODO
-        Map<Long, String> searchedVoiceActingMap = dto.getVoicesActingMap();
+        Map<Long, String> searchedVoiceActingMap = findSeriesVoiceActsResultDto.getMapVoiceActing();
 
-        String chatId = String.valueOf(dto.getChatId());
+        String chatId = String.valueOf(findSeriesVoiceActsResultDto.getChatId());
 
         if(searchedVoiceActingMap.size() > 0){
 
@@ -241,7 +238,7 @@ public class FollowReleaseServiceImpl implements FollowReleaseService {
             for(Map.Entry<Long, String> voice: searchedVoiceActingMap.entrySet()){
                 InlineKeyboardButton button = InlineKeyboardButton.builder()
                         .text(voice.getValue())
-                        .callbackData(dto.getUrlSeriesId() + "/" + voice)
+                        .callbackData(findSeriesVoiceActsResultDto.getSeriesUrlId() + "/" + voice)
                         .build();
                 List<InlineKeyboardButton> inlineKeyboardButtonList = List.of(button);
                 rows.add(inlineKeyboardButtonList);

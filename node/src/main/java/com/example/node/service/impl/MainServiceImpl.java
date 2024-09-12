@@ -6,7 +6,9 @@ import com.example.node.dao.RawDataDAO;
 import com.example.node.dao.VoiceActingDAO;
 import com.example.node.dao.enums.UserState;
 import com.example.node.dto.AppSeriesUrlDto;
-import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.node.dto.FindLastSeriesResultDto;
+import com.example.node.dto.FindSeriesToSubscribeResultDto;
+import com.example.node.dto.FindSeriesVoiceActsResultDto;
 import com.example.node.entity.*;
 import com.example.node.exceptions.UploadFileException;
 import com.example.node.service.AppUserService;
@@ -19,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -28,9 +29,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.example.node.dao.enums.UserState.*;
@@ -146,55 +145,65 @@ public class MainServiceImpl implements MainService {
 
     }
 
+    @Override
+    public void processResultOfFindSeriesToSubscribe(FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto) {
+        sendSearchedSeriesUrlAnswer(findSeriesToSubscribeResultDto);
+    }
 
-    public void processSearchedSeriesResponse(TransferDataBetweenNodeAndParserDto dto) {
-        UserState userState = dto.getUserState();
-
-        if(dto.getChatId() == secretId){
-            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
-            if(appSeriesUrlDtoList.size() > 0){
-
-                for(AppSeriesUrlDto appSeriesUrlDto: appSeriesUrlDtoList){
-                    List<AppUser> allFollowedUsers = followReleaseService.findAllFollowedUsers(appSeriesUrlDto.getId());
-
-                    followReleaseService.updateAppSeriesUrl(appSeriesUrlDto);
-
-                    for(AppUser appUser: allFollowedUsers){
-                        sendAnswer("Вышла новая серия сериала: \n" +
-                                appSeriesUrlDto.getNewUrl() + "\n" +
-                                "Приятного просмотра!", String.valueOf(appUser.getTelegramUserId()));
-                    }
-
-                }
-
-            }
-
-        }else if(userState.equals(READY_FOR_INPUT_TITLE_STATE)){
-            sendSearchedSeriesUrlAnswer(dto);
-        }else if (userState.equals(UserState.READY_FOR_INPUT_URL_STATE)) {
-            try{
-                SendMessage sendMessage = followReleaseService.createSearchedSeriesVoiceButtonsAnswer(dto);
-                producerService.producerService(sendMessage);
-            }catch(Exception e){
-                log.error(e);
-            }
-        } else if (userState.equals(READY_FOR_INPUT_VOICE_STATE)) {
-            AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(dto.getUrlSeriesId()).orElseThrow();
-            AppSeriesUrlDto appSeriesUrlDto = dto.getAppSeriesUrlDto();
-
-            appSeriesUrl.setVoiceActingName(appSeriesUrlDto.getVoiceActingName());
-            appSeriesUrl.setVoiceActingValue(appSeriesUrlDto.getVoiceActingValue());
-            appSeriesUrl.setLastSeason(appSeriesUrlDto.getLastSeason());
-            appSeriesUrl.setLastEpisode(appSeriesUrlDto.getLastEpisode());
-
-            appSeriesUrlDAO.save(appSeriesUrl);
-
-            AppUser appUser = appUserDAO.findByTelegramUserId(dto.getTelegramUserId()).orElseThrow();
-            appUser.setState(BASIC_STATE);
-            appUserDAO.save(appUser);
-            sendAnswer("Подписка на уведомление о выходе новой серии оформлена! Перейдите по ссылкe для просмотра последней серии \n" + dto.getResultUrl(), String.valueOf(dto.getChatId()));
+    @Override
+    public void processResultFindSeriesVoiceActs(FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto) {
+        try{
+            SendMessage sendMessage = followReleaseService.createSearchedSeriesVoiceButtonsAnswer(findSeriesVoiceActsResultDto);
+            producerService.producerService(sendMessage);
+        }catch(Exception e){
+            log.error(e);
         }
+    }
 
+    @Override
+    public void processResultFindLastSeries(FindLastSeriesResultDto findLastSeriesResultDto) {
+        AppSeriesUrl appSeriesUrl = appSeriesUrlDAO.findById(findLastSeriesResultDto.getUrlSeriesId()).orElseThrow();
+        AppSeriesUrlDto appSeriesUrlDto = findLastSeriesResultDto.getAppSeriesUrlDto();
+
+        appSeriesUrl.setVoiceActingName(appSeriesUrlDto.getVoiceActingName());
+        appSeriesUrl.setVoiceActingValue(appSeriesUrlDto.getVoiceActingValue());
+        appSeriesUrl.setLastSeason(appSeriesUrlDto.getLastSeason());
+        appSeriesUrl.setLastEpisode(appSeriesUrlDto.getLastEpisode());
+
+        appSeriesUrlDAO.save(appSeriesUrl);
+
+        AppUser appUser = appUserDAO.findByTelegramUserId(findLastSeriesResultDto.getTelegramUserId()).orElseThrow();
+        appUser.setState(BASIC_STATE);
+        appUserDAO.save(appUser);
+        sendAnswer("Подписка на уведомление о выходе новой серии оформлена! Перейдите по ссылкe для просмотра последней серии \n"
+                + findLastSeriesResultDto.getResultUrl(), String.valueOf(findLastSeriesResultDto.getChatId()));
+    }
+
+
+    public void processCheckingSeriesReleases(FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto) {
+        //TODO
+//        UserState userState = dto.getUserState();
+//
+//        if (dto.getChatId() == secretId) {
+//            List<AppSeriesUrlDto> appSeriesUrlDtoList = dto.getAppSeriesUrlDtoList();
+//            if (appSeriesUrlDtoList.size() > 0) {
+//
+//                for (AppSeriesUrlDto appSeriesUrlDto : appSeriesUrlDtoList) {
+//                    List<AppUser> allFollowedUsers = followReleaseService.findAllFollowedUsers(appSeriesUrlDto.getId());
+//
+//                    followReleaseService.updateAppSeriesUrl(appSeriesUrlDto);
+//
+//                    for (AppUser appUser : allFollowedUsers) {
+//                        sendAnswer("Вышла новая серия сериала: \n" +
+//                                appSeriesUrlDto.getNewUrl() + "\n" +
+//                                "Приятного просмотра!", String.valueOf(appUser.getTelegramUserId()));
+//                    }
+//
+//                }
+//
+//            }
+//
+//        }
     }
 
     private boolean isNotAllowToSendContent(long chatId, AppUser appUser) {
@@ -221,9 +230,9 @@ public class MainServiceImpl implements MainService {
         producerService.producerService(sendMessage);
     }
 
-    private void sendSearchedSeriesUrlAnswer(TransferDataBetweenNodeAndParserDto dto){
-        List<String> listSearchedSeries = dto.getUrlSeriesList();
-        String chatId = String.valueOf(dto.getChatId());
+    private void sendSearchedSeriesUrlAnswer(FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto){
+        List<String> listSearchedSeries = findSeriesToSubscribeResultDto.getUrlSeriesList();
+        String chatId = String.valueOf(findSeriesToSubscribeResultDto.getChatId());
 
         SendMessage sendMessage = new SendMessage();
 
@@ -238,7 +247,7 @@ public class MainServiceImpl implements MainService {
 
         for(String url: listSearchedSeries){
             sendMessage.setText(String.format("%s", url));
-            sendMessage.setChatId(dto.getChatId());
+            sendMessage.setChatId(findSeriesToSubscribeResultDto.getChatId());
             sendMessage.setReplyMarkup(inlineKeyboardMarkup);
             producerService.producerService(sendMessage);
         }

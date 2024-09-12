@@ -15,19 +15,28 @@ public class RabbitConfiguration {
     }
     @Bean
     public Queue searchingSeriesQueue(){
-        return new Queue(RabbitQueue.SEARCHING_SERIES_RELEASE_TO_PARSE);
+        return new Queue(RabbitQueue.FIND_SERIES_TO_SUBSCRIBE);
     }
     @Bean
     public Queue searchingSeriesResponseQueue(){
-        return new Queue(RabbitQueue.SEARCHED_SERIES_RELEASE_TO_PARSE_RESPONSE);
+        return new Queue(RabbitQueue.FIND_SERIES_TO_SUBSCRIBE_RESULT);
     }
 
     @Bean
     public Queue parsingSeriesQueue(){
-        return new Queue(RabbitQueue.PARSING_FOLLOW_SERIES_RELEASE);
+        return new Queue(RabbitQueue.FIND_SERIES_VOICE_ACTS);
     }
     @Bean
     public Queue parsingSeriesResponseQueue(){
-        return new Queue(RabbitQueue.PARSING_FOLLOW_SERIES_RELEASE_RESPONSE);
+        return new Queue(RabbitQueue.FIND_SERIES_VOICE_ACTS_RESULT);
+    }
+
+    @Bean
+    public Queue findLstSeriesQueue(){
+        return new Queue(RabbitQueue.FIND_LAST_SERIES);
+    }
+    @Bean
+    public Queue findLastSeriesResultQueue(){
+        return new Queue(RabbitQueue.FIND_LAST_SERIES_RESULT);
     }
 }

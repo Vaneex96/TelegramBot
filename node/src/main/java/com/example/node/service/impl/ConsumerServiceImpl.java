@@ -1,6 +1,8 @@
 package com.example.node.service.impl;
 
-import com.example.node.dao.enums.UserState;
+import com.example.node.dto.FindLastSeriesResultDto;
+import com.example.node.dto.FindSeriesToSubscribeResultDto;
+import com.example.node.dto.FindSeriesVoiceActsResultDto;
 import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
 import com.example.node.entity.MailSentResponse;
 import com.example.node.service.ConsumerService;
@@ -52,10 +54,32 @@ public class ConsumerServiceImpl implements ConsumerService {
     }
 
     @Override
-    @RabbitListener(queues = SEARCHED_SERIES_RELEASE_TO_PARSE_RESPONSE)
-    public void consumeSearchedSeriesReleaseToParseResponse(TransferDataBetweenNodeAndParserDto dto) {
+    @RabbitListener(queues = FIND_SERIES_TO_SUBSCRIBE_RESULT)
+    public void consumeResultOfFindSeriesToSubscribe(FindSeriesToSubscribeResultDto findSeriesToSubscribeResultDto) {
         try{
-            mainService.processSearchedSeriesResponse(dto);
+            mainService.processResultOfFindSeriesToSubscribe(findSeriesToSubscribeResultDto);
+        }catch(NullPointerException e){
+            System.out.println(e.getMessage());
+            log.error(e);
+        }
+    }
+
+    @Override
+    @RabbitListener(queues = FIND_SERIES_VOICE_ACTS_RESULT)
+    public void consumeResultOfFindSeriesVoiceActs(FindSeriesVoiceActsResultDto findSeriesVoiceActsResultDto) {
+        try{
+            mainService.processResultFindSeriesVoiceActs(findSeriesVoiceActsResultDto);
+        }catch(NullPointerException e){
+            System.out.println(e.getMessage());
+            log.error(e);
+        }
+    }
+
+    @Override
+    @RabbitListener(queues = FIND_LAST_SERIES_RESULT )
+    public void consumeResultOfLastSeries(FindLastSeriesResultDto findLastSeriesResultDto) {
+        try{
+            mainService.processResultFindLastSeries(findLastSeriesResultDto);
         }catch(NullPointerException e){
             System.out.println(e.getMessage());
             log.error(e);

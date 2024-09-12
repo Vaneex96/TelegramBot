@@ -1,6 +1,8 @@
 package com.example.node.service.impl;
 
-import com.example.node.dto.TransferDataBetweenNodeAndParserDto;
+import com.example.node.dto.FindLastSeriesDto;
+import com.example.node.dto.FindSeriesToSubscribeDto;
+import com.example.node.dto.FindSeriesVoiceActsDto;
 import com.example.node.service.ProducerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -21,12 +23,18 @@ public class ProducerServiceImpl implements ProducerService {
     }
 
     @Override
-    public void produceSearchingSeries(TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto) {
-        rabbitTemplate.convertAndSend(SEARCHING_SERIES_RELEASE_TO_PARSE, searchingSeriesToParseDto);
+    public void produceFindSeriesToSubscribe(FindSeriesToSubscribeDto findSeriesToSubscribeDto) {
+        rabbitTemplate.convertAndSend(FIND_SERIES_TO_SUBSCRIBE, findSeriesToSubscribeDto);
     }
 
     @Override
-    public void produceParsingFollowSeries(TransferDataBetweenNodeAndParserDto searchingSeriesToParseDto) {
-        rabbitTemplate.convertAndSend(PARSING_FOLLOW_SERIES_RELEASE, searchingSeriesToParseDto);
+    public void produceFindSeriesVoiceActs(FindSeriesVoiceActsDto findSeriesVoiceActsDto) {
+        rabbitTemplate.convertAndSend(FIND_SERIES_VOICE_ACTS, findSeriesVoiceActsDto);
     }
+
+    @Override
+    public void produceFindLastSeries(FindLastSeriesDto findLastSeriesDto) {
+        rabbitTemplate.convertAndSend(FIND_LAST_SERIES, findLastSeriesDto);
+    }
+
 }
