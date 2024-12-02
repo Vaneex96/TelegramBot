@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
-import static com.example.commonrabbitmq.RabbitQueue.*;
+import static com.example.parser.config.RabbitQueue.*;
 
 @RequiredArgsConstructor
 @Service

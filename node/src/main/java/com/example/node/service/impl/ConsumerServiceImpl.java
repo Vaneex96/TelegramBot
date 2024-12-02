@@ -13,7 +13,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
-import static com.example.commonrabbitmq.RabbitQueue.*;
+import static com.example.node.configuration.RabbitQueue.*;
 
 @Service
 @Log4j

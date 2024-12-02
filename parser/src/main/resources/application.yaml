@@ -1,0 +1,28 @@
+server:
+  port: ${PARSER_PORT}
+
+
+spring:
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USERNAME}
+    password: ${RABBIT_PASSWORD}
+
+
+secret:
+  id: ${SECRET_ID}
+
+url:
+  searching_template:
+    hdrezka: ${URL_SEARCHING_TEMPLATE_HDREZKA}
+
+webdriver:
+  path: ${WEBDRIVER_PATH}
+
+xpath:
+  voice_act: ${XPATH_VOICE_ACT}
+  season: ${XPATH_SEASON}
+
+css_selector:
+  translator: ${CSS_SELECTOR_FOR_TRANSLATOR}

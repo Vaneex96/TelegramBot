@@ -1,0 +1,28 @@
+server:
+  port: ${MAIL_SERVICE_PORT}
+
+spring:
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    protocol: ${MAIL_PROTOCOL}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USERNAME}
+    password: ${RABBIT_PASSWORD}
+    queues:
+      registration-mail-message: ${REGISTRATION_MAIL_MESSAGE}
+      registration-mail-send-result: ${REGISTRATION_MAIL_SEND_RESULT}
+
+service:
+  activation:
+    uri: ${ACTIVATION_URI}

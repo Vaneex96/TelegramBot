@@ -1,6 +1,6 @@
 package com.example.node.service.impl;
 
-import com.example.commonutils.utils.CryptoTool;
+import com.example.node.utils.CryptoTool;
 import com.example.node.dao.AppDocumentDAO;
 import com.example.node.dao.AppPhotoDAO;
 import com.example.node.dao.BinaryContentDAO;

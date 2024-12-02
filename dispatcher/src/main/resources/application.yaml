@@ -1,0 +1,29 @@
+server:
+  port: ${DISPATCHER_PORT}
+  ssl:
+    enabled: false
+
+bot:
+  name: ${TG_BOT_NAME}
+  token: ${TG_BOT_TOKEN}
+  uri: ${TG_BOT_URI}
+
+spring:
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USERNAME}
+    password: ${RABBIT_PASSWORD}
+    queues:
+      text-message-update: ${TEXT_MESSAGE_UPDATE:text_message_update}
+      doc-message-update: ${DOC_MESSAGE_UPDATE:doc_message_update}
+      photo-message-update: ${PHOTO_MESSAGE_UPDATE:photo_message_update}
+      answer-message: ${ANSWER_MESSAGE:answer_message_update}
+      registration-mail-message: ${REGISTRATION_MAIL_MESSAGE:registration_mail_message}
+      registration-mail-send-result: ${REGISTRATION_MAIL_SEND_RESULT:registration_mail_send_result}
+      find-series-to-subscribe: ${FIND_SERIES_TO_SUBSCRIBE:find_the_series_to_subscribe}
+      find-series-to-subscribe-result: ${FIND_SERIES_TO_SUBSCRIBE_RESULT:find_the_series_to_subscribe_result}
+      find-series-voice-acts: ${FIND_SERIES_VOICE_ACTS:find_available_voice_acts_of_the_series}
+      find-series-voice-acts-result: ${FIND_SERIES_VOICE_ACTS_RESULT:find_available_voice_acts_of_the_series_result}
+      find-last-series: ${FIND_LAST_SERIES:find_the_last_series_of_the_last_season_in_the_desired_voice_acting}
+      find-last-series-result: ${FIND_LAST_SERIES_RESULT:find_the_last_series_of_the_last_season_in_the_desired_voice_acting_result}

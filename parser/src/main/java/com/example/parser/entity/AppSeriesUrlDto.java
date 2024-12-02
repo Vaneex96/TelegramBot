@@ -17,4 +17,15 @@ public class AppSeriesUrlDto {
     private int lastSeason;
     private int lastEpisode;
     private String newUrl;
+
+    @Override
+    public String toString() {
+        return "AppSeriesUrlDto{" +
+                "id=" + id +
+                ", voiceActingName='" + voiceActingName + '\'' +
+                ", voiceActingValue=" + voiceActingValue +
+                ", lastSeason=" + lastSeason +
+                ", lastEpisode=" + lastEpisode +
+                '}';
+    }
 }

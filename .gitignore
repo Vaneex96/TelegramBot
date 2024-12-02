@@ -35,5 +35,5 @@ build/
 
 ### MY FILES ###
 
-application.properties
+.env
 /logs

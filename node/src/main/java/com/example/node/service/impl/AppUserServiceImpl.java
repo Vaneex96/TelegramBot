@@ -1,7 +1,7 @@
 package com.example.node.service.impl;
 
-import com.example.commonrabbitmq.RabbitQueue;
-import com.example.commonutils.utils.CryptoTool;
+import com.example.node.configuration.RabbitQueue;
+import com.example.node.utils.CryptoTool;
 import com.example.node.dao.AppUserDAO;
 import com.example.node.dao.enums.UserState;
 import com.example.node.dto.MailParams;
@@ -24,8 +24,6 @@ public class AppUserServiceImpl implements AppUserService {
 
     private final AppUserDAO appUserDAO;
     private final CryptoTool cryptoTool;
-    @Value("${service.mail.uri}")
-    private String mailServiceUri;
     private final RabbitTemplate rabbitTemplate;
 
     @Override

@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
-import static com.example.commonrabbitmq.RabbitQueue.REGISTRATION_MAIL_SEND_RESULT;
+import static com.example.mailservice.configuration.RabbitQueue.REGISTRATION_MAIL_SEND_RESULT;
 
 @RequiredArgsConstructor
 @Service

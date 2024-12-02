@@ -1,6 +1,6 @@
 package com.example.restservice.configuration;
 
-import com.example.commonutils.utils.CryptoTool;
+import com.example.restservice.utils.CryptoTool;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

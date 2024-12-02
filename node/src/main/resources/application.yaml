@@ -1,0 +1,31 @@
+server:
+  port: ${NODE_PORT}
+
+spring:
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USERNAME}
+    password: ${RABBIT_PASSWORD}
+
+  datasource:
+    url: ${POSTGRES_URL}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    generate-ddl: true
+
+
+token: ${TG_BOT_TOKEN}
+service:
+  file_info:
+    uri: ${TG_BOT_FILE_INFO_URI}
+  file_storage:
+    uri: ${TG_BOT_FILE_STORAGE_URI}
+
+link:
+  address: ${TG_BOT_URI}
+salt: ${SALT}
+
+secret:
+  id: ${SECRET_ID}

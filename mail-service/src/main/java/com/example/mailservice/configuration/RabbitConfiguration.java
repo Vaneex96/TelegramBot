@@ -1,14 +1,22 @@
 package com.example.mailservice.configuration;
 
-import com.example.commonrabbitmq.RabbitQueue;
+import lombok.Getter;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Getter
 @Configuration
 public class RabbitConfiguration {
+
+    @Value("${spring.rabbitmq.queues.registration-mail-message}")
+    private String registrationMailMessageQueue;
+
+    @Value("${spring.rabbitmq.queues.registration-mail-send-result}")
+    private String registrationMailSendResultQueue;
 
     @Bean
     public MessageConverter jsonMessageConverter(){
@@ -17,12 +25,12 @@ public class RabbitConfiguration {
 
     @Bean
     public Queue registrationMessageQueue(){
-        return new Queue(RabbitQueue.REGISTRATION_MAIL_MESSAGE);
+        return new Queue(registrationMailMessageQueue);
     }
 
     @Bean
     public Queue registrationMailSendResult(){
-        return new Queue(RabbitQueue.REGISTRATION_MAIL_SEND_RESULT);
+        return new Queue(registrationMailSendResultQueue);
     }
 
 }

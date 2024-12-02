@@ -1,6 +1,6 @@
 package com.example.mailservice.service.impl;
 
-import com.example.commonrabbitmq.RabbitQueue;
+import com.example.mailservice.configuration.RabbitQueue;
 import com.example.mailservice.dto.MailParams;
 import com.example.mailservice.service.ConsumerService;
 import com.example.mailservice.service.MailSenderService;
